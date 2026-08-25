@@ -1,0 +1,82 @@
+name: codestra-provisioning-production
+
+services:
+  secrets-init:
+    image: ${PROVISIONING_IMAGE:?immutable provisioning image digest is required}
+    user: "0:0"
+    entrypoint: ["/opt/venv/bin/python", "/app/scripts/init_secrets.py"]
+    restart: "no"
+    read_only: true
+    volumes:
+      - /etc/codestra/secrets/provisioning-service-production:/source-secrets:ro
+      - runtime_secrets:/run/provisioning-secrets
+      - state:/var/lib/codestra
+    networks: [private]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
+
+  provisioning-service:
+    image: ${PROVISIONING_IMAGE:?immutable provisioning image digest is required}
+    restart: unless-stopped
+    env_file:
+      - path: /etc/codestra/secrets/provisioning-service-production/service.env
+        required: false
+    depends_on:
+      secrets-init:
+        condition: service_completed_successfully
+    volumes:
+      - runtime_secrets:/run/provisioning-secrets:ro
+      - state:/var/lib/codestra
+    networks:
+      private:
+        aliases: [provisioning-service-production]
+      identity: {}
+      telephony: {}
+    expose: ["8443"]
+    read_only: true
+    tmpfs: [/tmp:size=16m,mode=1777]
+    user: "10001:10001"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: 1
+    healthcheck:
+      test:
+        - CMD
+        - /opt/venv/bin/python
+        - -c
+        - >-
+          import ssl,urllib.request;
+          c=ssl.create_default_context(cafile='/run/provisioning-secrets/ca.crt');
+          urllib.request.urlopen('https://provisioning-service-production:8443/ready',context=c,timeout=5)
+      interval: 10s
+      timeout: 6s
+      retries: 12
+      start_period: 20s
+    labels:
+      codestra.environment: PRODUCTION
+      codestra.isolation: private-only
+      codestra.service: codestra-provisioning-service
+
+networks:
+  private:
+    internal: true
+    labels:
+      codestra.environment: PRODUCTION
+      codestra.isolation: private-only
+  identity:
+    external: true
+    name: codestra-identity_identity_service
+  telephony:
+    external: true
+    name: codestra-provisioning-service_telephony_private
+
+volumes:
+  runtime_secrets:
+    labels:
+      codestra.environment: PRODUCTION
+  state:
+    labels:
+      codestra.environment: PRODUCTION

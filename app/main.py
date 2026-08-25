@@ -22,6 +22,7 @@ from .contracts import (
 )
 from .engine import EngineError, ProvisioningEngine
 from .logging import configure_logging
+from .readiness import DependencyReadiness
 from .repository import StateRepository
 from .security import JWTAuthorizer, Principal, require_scope
 from .sip_browser import SipBrowserSessionError, SipBrowserSessionManager
@@ -34,6 +35,7 @@ def create_app(
     settings: Settings | None = None,
     repository: StateRepository | None = None,
     adapters=None,
+    readiness_checker=None,
 ) -> FastAPI:
     configured = settings or Settings.load()
     state = repository or StateRepository(configured.state_database_path)
@@ -60,6 +62,7 @@ def create_app(
     except RuntimeError:
         sip_browser = None
     authorizer = JWTAuthorizer(configured, state)
+    dependency_readiness = readiness_checker or DependencyReadiness(configured)
     disabled_adapters = sorted(
         name for name, adapter in loaded_adapters.items() if isinstance(adapter, DisabledAdapter)
     )
@@ -138,18 +141,22 @@ def create_app(
 
     @api.get("/health")
     async def health():
-        return {"status": "ok", "environment": "staging"}
+        return {"status": "ok", "environment": configured.environment}
 
     @api.get("/ready")
     async def ready(response: Response):
         errors = configured.readiness_errors()
+        try:
+            state.counts()
+        except Exception:  # readiness must fail closed without exposing DB details
+            errors.append("sqlite_unavailable")
+        errors.extend(await dependency_readiness.errors())
         if errors:
             response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
             return {"status": "not_ready", "conditions": sorted(errors)}
-        state.counts()
         return {
             "status": "ready",
-            "environment": "staging",
+            "environment": configured.environment,
             "degraded_capabilities": disabled_adapters,
             "callback_configured": bool(configured.callback_url),
         }
