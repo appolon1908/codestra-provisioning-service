@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import sqlite3
 import threading
 from datetime import UTC, datetime, timedelta
@@ -45,7 +46,9 @@ class StateRepository:
         self._connection.row_factory = sqlite3.Row
         self._connection.execute("PRAGMA journal_mode=WAL")
         self._connection.execute("PRAGMA synchronous=FULL")
+        self._connection.execute("PRAGMA busy_timeout=30000")
         self._connection.execute("PRAGMA foreign_keys=ON")
+        self._secure_database_files()
         self._connection.executescript(
             """
             CREATE TABLE IF NOT EXISTS executions (
@@ -169,6 +172,39 @@ class StateRepository:
               WHERE state='active';
             """
         )
+
+    def _secure_database_files(self) -> None:
+        """Keep the application-only database and WAL files owner-readable only."""
+        for suffix in ("", "-wal", "-shm"):
+            candidate = Path(f"{self.path}{suffix}")
+            if candidate.exists():
+                os.chmod(candidate, 0o600)
+
+    def durability_status(self) -> dict[str, int | str | bool]:
+        """Return cheap runtime invariants; intentionally excludes integrity scans."""
+        with self._lock:
+            pragmas = {
+                "journal_mode": self._connection.execute(
+                    "PRAGMA journal_mode"
+                ).fetchone()[0],
+                "synchronous": self._connection.execute(
+                    "PRAGMA synchronous"
+                ).fetchone()[0],
+                "busy_timeout": self._connection.execute(
+                    "PRAGMA busy_timeout"
+                ).fetchone()[0],
+                "foreign_keys": self._connection.execute(
+                    "PRAGMA foreign_keys"
+                ).fetchone()[0],
+            }
+        candidate = Path(self.path)
+        return {
+            **pragmas,
+            "exists": candidate.is_file(),
+            "writable": os.access(candidate, os.W_OK),
+            "size_bytes": candidate.stat().st_size if candidate.is_file() else 0,
+            "mode": candidate.stat().st_mode & 0o777 if candidate.is_file() else 0,
+        }
         compensation_columns = {
             row["name"]
             for row in self._connection.execute(

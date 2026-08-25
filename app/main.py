@@ -148,6 +148,16 @@ def create_app(
         errors = configured.readiness_errors()
         try:
             state.counts()
+            durability = state.durability_status()
+            if (
+                durability["journal_mode"] != "wal"
+                or durability["synchronous"] != 2
+                or durability["busy_timeout"] < 30000
+                or durability["foreign_keys"] != 1
+                or not durability["writable"]
+                or durability["mode"] != 0o600
+            ):
+                errors.append("sqlite_durability_invalid")
         except Exception:  # readiness must fail closed without exposing DB details
             errors.append("sqlite_unavailable")
         errors.extend(await dependency_readiness.errors())
@@ -164,7 +174,28 @@ def create_app(
     @api.get("/metrics", include_in_schema=False)
     async def metrics():
         counts = state.counts()
+        database = state.durability_status()
+        database_available = int(database["exists"] and database["writable"])
+        durability_valid = int(
+            database["journal_mode"] == "wal"
+            and database["synchronous"] == 2
+            and database["busy_timeout"] >= 30000
+            and database["foreign_keys"] == 1
+            and database["mode"] == 0o600
+        )
         lines = [
+            "# HELP codestra_provisioning_sqlite_available SQLite file is present and writable.",
+            "# TYPE codestra_provisioning_sqlite_available gauge",
+            f"codestra_provisioning_sqlite_available {database_available}",
+            "# HELP codestra_provisioning_sqlite_size_bytes SQLite database file size.",
+            "# TYPE codestra_provisioning_sqlite_size_bytes gauge",
+            f"codestra_provisioning_sqlite_size_bytes {database['size_bytes']}",
+            (
+                "# HELP codestra_provisioning_sqlite_durability_config "
+                "SQLite durability configuration is approved."
+            ),
+            "# TYPE codestra_provisioning_sqlite_durability_config gauge",
+            f"codestra_provisioning_sqlite_durability_config {durability_valid}",
             "# HELP codestra_provisioning_pending_steps Durable runnable or claimed steps.",
             "# TYPE codestra_provisioning_pending_steps gauge",
             f"codestra_provisioning_pending_steps {counts['pending_steps']}",
