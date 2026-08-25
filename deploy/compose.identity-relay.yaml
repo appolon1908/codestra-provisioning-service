@@ -4,7 +4,7 @@ services:
   identity-relay:
     image: ${RELAY_IMAGE:?immutable relay image digest is required}
     container_name: codestra-provisioning-jwks-relay
-    entrypoint: ["/opt/venv/bin/python", "-c"]
+    entrypoint: ["python", "-c"]
     command:
       - |
         import os,socket,socketserver,threading
@@ -31,8 +31,10 @@ services:
     networks:
       identity:
         aliases: [auth.codestra.co]
+      egress: {}
     read_only: true
-    tmpfs: [/tmp:size=4m,mode=1777]
+    tmpfs:
+      - /tmp:size=4m,mode=1777
     user: "10001:10001"
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
@@ -47,3 +49,8 @@ networks:
   identity:
     external: true
     name: codestra-identity_identity_service
+  egress:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.254.44.0/28
