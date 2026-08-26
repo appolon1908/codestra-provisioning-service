@@ -119,7 +119,6 @@ jobs:
 
   sign-existing-release:
     if: github.event_name == 'workflow_dispatch' && inputs.image_digest != ''
-    needs: validate
     runs-on: ubuntu-latest
     environment: provisioning-production-release
     permissions:
