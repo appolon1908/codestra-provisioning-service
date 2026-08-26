@@ -172,6 +172,28 @@ class StateRepository:
               WHERE state='active';
             """
         )
+        compensation_columns = {
+            row["name"]
+            for row in self._connection.execute(
+                "PRAGMA table_info(compensation_actions)"
+            ).fetchall()
+        }
+        for name, definition in (
+            ("attempt_count", "INTEGER NOT NULL DEFAULT 0"),
+            ("max_attempts", "INTEGER NOT NULL DEFAULT 3"),
+            ("next_retry_at", "TEXT"),
+            ("updated_at", "TEXT"),
+        ):
+            if name not in compensation_columns:
+                self._connection.execute(
+                    f"ALTER TABLE compensation_actions ADD COLUMN {name} {definition}"
+                )
+        execution_columns = {
+            row["name"]
+            for row in self._connection.execute("PRAGMA table_info(executions)").fetchall()
+        }
+        if "cancelled_at" not in execution_columns:
+            self._connection.execute("ALTER TABLE executions ADD COLUMN cancelled_at TEXT")
 
     def _secure_database_files(self) -> None:
         """Keep the application-only database and WAL files owner-readable only."""
@@ -205,29 +227,6 @@ class StateRepository:
             "size_bytes": candidate.stat().st_size if candidate.is_file() else 0,
             "mode": candidate.stat().st_mode & 0o777 if candidate.is_file() else 0,
         }
-        compensation_columns = {
-            row["name"]
-            for row in self._connection.execute(
-                "PRAGMA table_info(compensation_actions)"
-            ).fetchall()
-        }
-        for name, definition in (
-            ("attempt_count", "INTEGER NOT NULL DEFAULT 0"),
-            ("max_attempts", "INTEGER NOT NULL DEFAULT 3"),
-            ("next_retry_at", "TEXT"),
-            ("updated_at", "TEXT"),
-        ):
-            if name not in compensation_columns:
-                self._connection.execute(
-                    f"ALTER TABLE compensation_actions ADD COLUMN {name} {definition}"
-                )
-        execution_columns = {
-            row["name"]
-            for row in self._connection.execute("PRAGMA table_info(executions)").fetchall()
-        }
-        if "cancelled_at" not in execution_columns:
-            self._connection.execute("ALTER TABLE executions ADD COLUMN cancelled_at TEXT")
-
     def transition_mock_mailbox(
         self,
         employee_id: str,

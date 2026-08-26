@@ -1,6 +1,9 @@
+import json
 import logging
 import time
 from contextlib import asynccontextmanager
+from datetime import datetime
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.exceptions import RequestValidationError
@@ -175,6 +178,16 @@ def create_app(
     async def metrics():
         counts = state.counts()
         database = state.durability_status()
+        backup_timestamp = 0.0
+        try:
+            metadata = json.loads(
+                Path(configured.sqlite_backup_metadata_file).read_text()
+            )
+            backup_timestamp = datetime.fromisoformat(
+                metadata["created_at"]
+            ).timestamp()
+        except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+            pass
         database_available = int(database["exists"] and database["writable"])
         durability_valid = int(
             database["journal_mode"] == "wal"
@@ -196,6 +209,12 @@ def create_app(
             ),
             "# TYPE codestra_provisioning_sqlite_durability_config gauge",
             f"codestra_provisioning_sqlite_durability_config {durability_valid}",
+            (
+                "# HELP codestra_provisioning_sqlite_backup_timestamp_seconds "
+                "Latest successful encrypted SQLite backup."
+            ),
+            "# TYPE codestra_provisioning_sqlite_backup_timestamp_seconds gauge",
+            f"codestra_provisioning_sqlite_backup_timestamp_seconds {backup_timestamp}",
             "# HELP codestra_provisioning_pending_steps Durable runnable or claimed steps.",
             "# TYPE codestra_provisioning_pending_steps gauge",
             f"codestra_provisioning_pending_steps {counts['pending_steps']}",

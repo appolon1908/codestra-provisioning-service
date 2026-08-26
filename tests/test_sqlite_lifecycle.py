@@ -29,6 +29,7 @@ def test_encrypted_backup_and_isolated_restore(tmp_path, capsys):
     assert encrypted.read_bytes()[:16] != database.read_bytes()[:16]
     assert encrypted.stat().st_mode & 0o777 == 0o600
     assert encrypted.with_suffix(encrypted.suffix + ".json").exists()
+    assert json.loads((destination / "latest.json").read_text())["backup"] == encrypted.name
 
     restore_verify(
         argparse.Namespace(
@@ -58,3 +59,31 @@ def test_repository_database_files_are_private(tmp_path):
         "size_bytes": status["size_bytes"],
         "mode": 0o600,
     }
+
+
+def test_repository_migrates_legacy_schema(tmp_path):
+    from app.repository import StateRepository
+
+    database = tmp_path / "legacy.sqlite3"
+    connection = sqlite3.connect(database)
+    connection.execute(
+        "create table executions (request_id text primary key, employee_id text, "
+        "correlation_id text, idempotency_hash text, request_hash text, state text, "
+        "result_json text, created_at text, updated_at text)"
+    )
+    connection.execute(
+        "create table compensation_actions (id integer primary key, request_id text, "
+        "step_id text, action text, state text, evidence_hash text, error_code text, "
+        "created_at text, unique(request_id,step_id,action))"
+    )
+    connection.commit()
+    connection.close()
+    StateRepository(str(database))
+    connection = sqlite3.connect(database)
+    compensation = {
+        row[1] for row in connection.execute("pragma table_info(compensation_actions)")
+    }
+    executions = {row[1] for row in connection.execute("pragma table_info(executions)")}
+    connection.close()
+    assert {"attempt_count", "max_attempts", "next_retry_at", "updated_at"} <= compensation
+    assert "cancelled_at" in executions

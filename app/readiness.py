@@ -57,6 +57,16 @@ class DependencyReadiness:
             if identity not in seen:
                 seen.add(identity)
                 checks.append(self._check_telephony(config))
+        for name in ("odoo", "agent_desktop", "email_provider", "n8n_event"):
+            config = document.get(name, {})
+            if not isinstance(config, dict) or not config.get("enabled"):
+                continue
+            if (
+                name == "email_provider"
+                and config.get("provider") == "deterministic_internal_mock"
+            ):
+                continue
+            checks.append(self._check_http_adapter(name, config))
         if not checks:
             return []
         results = await asyncio.gather(*checks, return_exceptions=True)
@@ -73,7 +83,11 @@ class DependencyReadiness:
         return httpx.Timeout(value, connect=value)
 
     async def _check_keycloak(self, config: dict[str, Any]) -> str | None:
-        discovery_url = f"{self.settings.jwt_issuer}/.well-known/openid-configuration"
+        realm_url = (
+            f"{config['base_url'].rstrip('/')}/realms/{config['realm']}"
+        )
+        discovery_url = f"{realm_url}/.well-known/openid-configuration"
+        token_endpoint = f"{realm_url}/protocol/openid-connect/token"
         try:
             async with httpx.AsyncClient(
                 timeout=self._timeout(), follow_redirects=False
@@ -89,8 +103,7 @@ class DependencyReadiness:
                 jwks_response.raise_for_status()
                 if not jwks_response.json().get("keys"):
                     return "keycloak_jwks_unusable"
-                token_endpoint = discovery.get("token_endpoint")
-                if not isinstance(token_endpoint, str):
+                if not isinstance(discovery.get("token_endpoint"), str):
                     return "keycloak_token_endpoint_missing"
                 secret = read_secret_file(config["client_secret_file"])
                 token_response = await client.post(
@@ -108,6 +121,22 @@ class DependencyReadiness:
                     return "keycloak_token_invalid"
         except (OSError, KeyError, ValueError, httpx.HTTPError):
             return "keycloak_unavailable"
+        return None
+
+    async def _check_http_adapter(
+        self, name: str, config: dict[str, Any]
+    ) -> str | None:
+        try:
+            async with httpx.AsyncClient(
+                timeout=self._timeout(),
+                verify=config["ca_file"],
+                follow_redirects=False,
+            ) as client:
+                response = await client.get(config["base_url"])
+                if response.status_code >= 500:
+                    return f"{name}_unavailable"
+        except (OSError, KeyError, httpx.HTTPError):
+            return f"{name}_unavailable"
         return None
 
     async def _check_callback(self) -> str | None:

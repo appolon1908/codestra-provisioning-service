@@ -64,6 +64,7 @@ class Settings:
     sip_browser_campaign: str = SIP_BROWSER_CAMPAIGN
     readiness_timeout_seconds: float = 3.0
     readiness_cache_seconds: float = 15.0
+    sqlite_backup_metadata_file: str = "/run/provisioning-backup-status/latest.json"
 
     @classmethod
     def load(cls) -> "Settings":
@@ -149,6 +150,10 @@ class Settings:
             ),
             readiness_cache_seconds=float(
                 os.getenv("READINESS_CACHE_SECONDS", "15")
+            ),
+            sqlite_backup_metadata_file=os.getenv(
+                "SQLITE_BACKUP_METADATA_FILE",
+                "/run/provisioning-backup-status/latest.json",
             ),
         )
 

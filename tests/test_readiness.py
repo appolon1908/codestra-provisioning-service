@@ -75,6 +75,40 @@ async def test_intentionally_disabled_optional_adapters_are_ignored(tmp_path):
     assert await checker.errors() == []
 
 
+@pytest.mark.asyncio
+async def test_every_enabled_external_http_adapter_is_probed(tmp_path, monkeypatch):
+    _, settings, _, _ = material(tmp_path)
+    config = tmp_path / "adapters.json"
+    config.write_text(
+        json.dumps(
+            {
+                name: {
+                    "enabled": True,
+                    "base_url": f"https://{name}.invalid",
+                    "ca_file": str(tmp_path / "ca.crt"),
+                }
+                for name in ("odoo", "agent_desktop", "email_provider", "n8n_event")
+            }
+        )
+    )
+    config.chmod(0o600)
+    checker = DependencyReadiness(
+        replace(settings, adapter_config_file=str(config), callback_url=None)
+    )
+
+    async def failed(name, adapter):
+        del adapter
+        return f"{name}_unavailable"
+
+    monkeypatch.setattr(checker, "_check_http_adapter", failed)
+    assert await checker.errors() == [
+        "agent_desktop_unavailable",
+        "email_provider_unavailable",
+        "n8n_event_unavailable",
+        "odoo_unavailable",
+    ]
+
+
 def test_production_rejects_staging_machine_client(tmp_path):
     _, settings, _, _ = material(tmp_path)
     production = replace(

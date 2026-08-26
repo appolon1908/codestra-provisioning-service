@@ -101,6 +101,11 @@ def backup(args: argparse.Namespace) -> None:
     }
     metadata_path.write_text(json.dumps(metadata, sort_keys=True) + "\n")
     os.chmod(metadata_path, 0o600)
+    latest_metadata = destination / "latest.json"
+    temporary_metadata = destination / ".latest.json.tmp"
+    temporary_metadata.write_text(json.dumps(metadata, sort_keys=True) + "\n")
+    os.chmod(temporary_metadata, 0o600)
+    os.replace(temporary_metadata, latest_metadata)
     cutoff = time.time() - args.retention_days * 86400
     for candidate in destination.glob("provisioning-*.sqlite3.aes256gcm*"):
         if candidate.stat().st_mtime < cutoff:

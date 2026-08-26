@@ -28,6 +28,7 @@ services:
     volumes:
       - runtime_secrets:/run/provisioning-secrets:ro
       - state:/var/lib/codestra
+      - /var/backups/codestra/provisioning:/run/provisioning-backup-status:ro
     networks:
       private:
         aliases: [provisioning-service-production]
