@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import sqlite3
 import threading
 from datetime import UTC, datetime, timedelta
@@ -39,13 +40,17 @@ class StateRepository:
         self.path = path
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
+        self._sqlite_write_errors = 0
+        self._sqlite_lock_errors = 0
         self._connection = sqlite3.connect(
             path, check_same_thread=False, isolation_level=None, timeout=30
         )
         self._connection.row_factory = sqlite3.Row
         self._connection.execute("PRAGMA journal_mode=WAL")
         self._connection.execute("PRAGMA synchronous=FULL")
+        self._connection.execute("PRAGMA busy_timeout=30000")
         self._connection.execute("PRAGMA foreign_keys=ON")
+        self._secure_database_files()
         self._connection.executescript(
             """
             CREATE TABLE IF NOT EXISTS executions (
@@ -192,6 +197,47 @@ class StateRepository:
         if "cancelled_at" not in execution_columns:
             self._connection.execute("ALTER TABLE executions ADD COLUMN cancelled_at TEXT")
 
+    def _secure_database_files(self) -> None:
+        """Keep the application-only database and WAL files owner-readable only."""
+        for suffix in ("", "-wal", "-shm"):
+            candidate = Path(f"{self.path}{suffix}")
+            if candidate.exists():
+                os.chmod(candidate, 0o600)
+
+    def durability_status(self) -> dict[str, int | str | bool]:
+        """Return cheap runtime invariants; intentionally excludes integrity scans."""
+        with self._lock:
+            pragmas = {
+                "journal_mode": self._connection.execute(
+                    "PRAGMA journal_mode"
+                ).fetchone()[0],
+                "synchronous": self._connection.execute(
+                    "PRAGMA synchronous"
+                ).fetchone()[0],
+                "busy_timeout": self._connection.execute(
+                    "PRAGMA busy_timeout"
+                ).fetchone()[0],
+                "foreign_keys": self._connection.execute(
+                    "PRAGMA foreign_keys"
+                ).fetchone()[0],
+            }
+        candidate = Path(self.path)
+        return {
+            **pragmas,
+            "exists": candidate.is_file(),
+            "writable": os.access(candidate, os.W_OK),
+            "size_bytes": candidate.stat().st_size if candidate.is_file() else 0,
+            "mode": candidate.stat().st_mode & 0o777 if candidate.is_file() else 0,
+        }
+
+    def record_sqlite_error(self, error: BaseException) -> None:
+        self._sqlite_write_errors += 1
+        message = str(error).lower()
+        if "locked" in message or "busy" in message:
+            self._sqlite_lock_errors += 1
+
+    def sqlite_error_counts(self) -> tuple[int, int]:
+        return self._sqlite_write_errors, self._sqlite_lock_errors
     def transition_mock_mailbox(
         self,
         employee_id: str,

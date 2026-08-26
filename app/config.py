@@ -62,12 +62,15 @@ class Settings:
     jwt_max_token_ttl_seconds: int = MAX_TOKEN_TTL_SECONDS
     sip_browser_endpoint: int = SIP_BROWSER_ENDPOINT
     sip_browser_campaign: str = SIP_BROWSER_CAMPAIGN
+    readiness_timeout_seconds: float = 3.0
+    readiness_cache_seconds: float = 15.0
+    sqlite_backup_metadata_file: str = "/run/provisioning-backup-status/latest.json"
 
     @classmethod
     def load(cls) -> "Settings":
         environment = os.getenv("ENVIRONMENT", "").strip().lower()
-        if environment != "staging":
-            raise RuntimeError("service is staging-only")
+        if environment not in {"staging", "production"}:
+            raise RuntimeError("environment must be staging or production")
         sip_browser_endpoint = int(
             os.getenv("SIP_BROWSER_ENDPOINT", str(SIP_BROWSER_ENDPOINT))
         )
@@ -142,6 +145,16 @@ class Settings:
             ),
             sip_browser_endpoint=sip_browser_endpoint,
             sip_browser_campaign=sip_browser_campaign,
+            readiness_timeout_seconds=float(
+                os.getenv("READINESS_TIMEOUT_SECONDS", "3")
+            ),
+            readiness_cache_seconds=float(
+                os.getenv("READINESS_CACHE_SECONDS", "15")
+            ),
+            sqlite_backup_metadata_file=os.getenv(
+                "SQLITE_BACKUP_METADATA_FILE",
+                "/run/provisioning-backup-status/latest.json",
+            ),
         )
 
     def readiness_errors(self) -> list[str]:
@@ -156,10 +169,20 @@ class Settings:
             errors.append("jwt_audience_invalid")
         if self.jwt_jwks_url != CANONICAL_JWKS_URL:
             errors.append("jwt_jwks_not_canonical")
-        if self.jwt_expected_azp != MACHINE_CLIENT_ID:
-            errors.append("jwt_expected_azp_invalid")
-        if self.jwt_allowed_clients != frozenset({MACHINE_CLIENT_ID}):
+        if not self.jwt_expected_azp:
+            errors.append("jwt_expected_azp_missing")
+        if self.jwt_expected_azp == "REQUIRED_PRODUCTION_CLIENT_ID":
+            errors.append("production_client_placeholder")
+        if self.jwt_allowed_clients != frozenset({self.jwt_expected_azp}):
             errors.append("jwt_allowed_clients_invalid")
+        if self.environment == "staging" and self.jwt_expected_azp != MACHINE_CLIENT_ID:
+            errors.append("jwt_expected_azp_invalid")
+        if self.environment == "production" and self.jwt_expected_azp.endswith("-staging"):
+            errors.append("production_client_is_staging")
+        if enabled("CALLBACK_GATE") and not self.callback_url:
+            errors.append("callback_url_missing")
+        if self.callback_url and self.callback_url.startswith("REQUIRED_"):
+            errors.append("callback_url_placeholder")
         if self.jwt_required_scopes != MACHINE_SCOPES:
             errors.append("jwt_required_scopes_invalid")
         if self.jwt_max_token_ttl_seconds != MAX_TOKEN_TTL_SECONDS:
@@ -168,6 +191,10 @@ class Settings:
             errors.append("sip_browser_endpoint_invalid")
         if self.sip_browser_campaign != SIP_BROWSER_CAMPAIGN:
             errors.append("sip_browser_campaign_invalid")
+        if not 0.25 <= self.readiness_timeout_seconds <= 10:
+            errors.append("readiness_timeout_invalid")
+        if not 1 <= self.readiness_cache_seconds <= 60:
+            errors.append("readiness_cache_invalid")
         for name, path in (
             ("callback_hmac", self.callback_hmac_file),
             ("encryption_key", self.encryption_key_file),

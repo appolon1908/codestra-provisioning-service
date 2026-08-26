@@ -1,6 +1,10 @@
+import json
 import logging
+import sqlite3
 import time
 from contextlib import asynccontextmanager
+from datetime import datetime
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.exceptions import RequestValidationError
@@ -22,6 +26,7 @@ from .contracts import (
 )
 from .engine import EngineError, ProvisioningEngine
 from .logging import configure_logging
+from .readiness import DependencyReadiness
 from .repository import StateRepository
 from .security import JWTAuthorizer, Principal, require_scope
 from .sip_browser import SipBrowserSessionError, SipBrowserSessionManager
@@ -34,6 +39,7 @@ def create_app(
     settings: Settings | None = None,
     repository: StateRepository | None = None,
     adapters=None,
+    readiness_checker=None,
 ) -> FastAPI:
     configured = settings or Settings.load()
     state = repository or StateRepository(configured.state_database_path)
@@ -60,6 +66,7 @@ def create_app(
     except RuntimeError:
         sip_browser = None
     authorizer = JWTAuthorizer(configured, state)
+    dependency_readiness = readiness_checker or DependencyReadiness(configured)
     disabled_adapters = sorted(
         name for name, adapter in loaded_adapters.items() if isinstance(adapter, DisabledAdapter)
     )
@@ -136,28 +143,125 @@ def create_app(
         del exc
         return JSONResponse({"detail": "request_validation_failed"}, status_code=422)
 
+    @api.exception_handler(sqlite3.Error)
+    async def sqlite_error(_: Request, exc: sqlite3.Error):
+        state.record_sqlite_error(exc)
+        return JSONResponse({"detail": "state_store_unavailable"}, status_code=503)
+
     @api.get("/health")
     async def health():
-        return {"status": "ok", "environment": "staging"}
+        return {"status": "ok", "environment": configured.environment}
 
     @api.get("/ready")
     async def ready(response: Response):
         errors = configured.readiness_errors()
+        try:
+            state.counts()
+            durability = state.durability_status()
+            if (
+                durability["journal_mode"] != "wal"
+                or durability["synchronous"] != 2
+                or durability["busy_timeout"] < 30000
+                or durability["foreign_keys"] != 1
+                or not durability["writable"]
+                or durability["mode"] != 0o600
+            ):
+                errors.append("sqlite_durability_invalid")
+        except Exception as exc:  # readiness must fail closed without DB details
+            if isinstance(exc, sqlite3.Error):
+                state.record_sqlite_error(exc)
+            errors.append("sqlite_unavailable")
+        errors.extend(await dependency_readiness.errors())
         if errors:
             response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
             return {"status": "not_ready", "conditions": sorted(errors)}
-        state.counts()
         return {
             "status": "ready",
-            "environment": "staging",
+            "environment": configured.environment,
             "degraded_capabilities": disabled_adapters,
             "callback_configured": bool(configured.callback_url),
         }
 
     @api.get("/metrics", include_in_schema=False)
     async def metrics():
-        counts = state.counts()
+        try:
+            counts = state.counts()
+            database = state.durability_status()
+        except Exception as exc:
+            if isinstance(exc, sqlite3.Error):
+                state.record_sqlite_error(exc)
+            counts = {
+                "pending_steps": 0,
+                "dead_letters": 0,
+                "pending_callbacks": 0,
+                "failed_callbacks": 0,
+                "failed_compensations": 0,
+            }
+            database = {
+                "exists": False,
+                "writable": False,
+                "size_bytes": 0,
+                "journal_mode": "unavailable",
+                "synchronous": 0,
+                "busy_timeout": 0,
+                "foreign_keys": 0,
+                "mode": 0,
+            }
+        write_errors, lock_errors = state.sqlite_error_counts()
+        backup_timestamp = 0.0
+        backup_failures = 0
+        restore_rehearsal_timestamp = 0.0
+        try:
+            metadata = json.loads(
+                Path(configured.sqlite_backup_metadata_file).read_text()
+            )
+            backup_timestamp = datetime.fromisoformat(
+                metadata["created_at"]
+            ).timestamp()
+            backup_failures = int(metadata.get("backup_failures_total", 0))
+            restore_rehearsal_timestamp = float(
+                metadata.get("restore_rehearsal_timestamp_seconds", 0)
+            )
+        except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+            pass
+        database_available = int(database["exists"] and database["writable"])
+        durability_valid = int(
+            database["journal_mode"] == "wal"
+            and database["synchronous"] == 2
+            and database["busy_timeout"] >= 30000
+            and database["foreign_keys"] == 1
+            and database["mode"] == 0o600
+        )
         lines = [
+            "# HELP codestra_provisioning_sqlite_available SQLite file is present and writable.",
+            "# TYPE codestra_provisioning_sqlite_available gauge",
+            f"codestra_provisioning_sqlite_available {database_available}",
+            "# HELP codestra_provisioning_sqlite_size_bytes SQLite database file size.",
+            "# TYPE codestra_provisioning_sqlite_size_bytes gauge",
+            f"codestra_provisioning_sqlite_size_bytes {database['size_bytes']}",
+            (
+                "# HELP codestra_provisioning_sqlite_durability_config "
+                "SQLite durability configuration is approved."
+            ),
+            "# TYPE codestra_provisioning_sqlite_durability_config gauge",
+            f"codestra_provisioning_sqlite_durability_config {durability_valid}",
+            "# TYPE codestra_provisioning_sqlite_write_errors_total counter",
+            f"codestra_provisioning_sqlite_write_errors_total {write_errors}",
+            "# TYPE codestra_provisioning_sqlite_lock_errors_total counter",
+            f"codestra_provisioning_sqlite_lock_errors_total {lock_errors}",
+            (
+                "# HELP codestra_provisioning_sqlite_backup_timestamp_seconds "
+                "Latest successful encrypted SQLite backup."
+            ),
+            "# TYPE codestra_provisioning_sqlite_backup_timestamp_seconds gauge",
+            f"codestra_provisioning_sqlite_backup_timestamp_seconds {backup_timestamp}",
+            "# TYPE codestra_provisioning_sqlite_backup_failures_total counter",
+            f"codestra_provisioning_sqlite_backup_failures_total {backup_failures}",
+            "# TYPE codestra_provisioning_sqlite_restore_rehearsal_timestamp_seconds gauge",
+            (
+                "codestra_provisioning_sqlite_restore_rehearsal_timestamp_seconds "
+                f"{restore_rehearsal_timestamp}"
+            ),
             "# HELP codestra_provisioning_pending_steps Durable runnable or claimed steps.",
             "# TYPE codestra_provisioning_pending_steps gauge",
             f"codestra_provisioning_pending_steps {counts['pending_steps']}",
