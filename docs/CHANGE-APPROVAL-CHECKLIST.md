@@ -17,4 +17,3 @@ approval.
 - [ ] Backlog disposition table is approved without automatic replay.
 - [ ] Exact maintenance window and rollback owner are recorded.
 - [ ] Deployment, timers, canaries, DR, rollback, and load/soak pass.
-
