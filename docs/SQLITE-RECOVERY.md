@@ -13,6 +13,10 @@ metadata to the approved off-host repository. Never copy the live database file.
 
 Alert if the latest successful off-host backup is older than 24 hours. Keep the
 encryption key outside both the application volume and backup failure domain.
+The source-controlled systemd units under `deploy/systemd` schedule daily online
+backups and monthly isolated restore rehearsals. Their environment file must pin
+`PROVISIONING_IMAGE` by registry digest; mutable tags are rejected by the restore
+runner and must not be used for the backup unit.
 
 ## Recovery procedure
 
