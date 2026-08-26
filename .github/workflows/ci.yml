@@ -4,6 +4,12 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      image_digest:
+        description: Existing immutable sha256 digest to sign and verify
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -47,9 +53,11 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: validate
     runs-on: ubuntu-latest
+    environment: provisioning-production-release
     permissions:
       contents: read
       packages: write
+      id-token: write
     outputs:
       digest: ${{ steps.build.outputs.digest }}
     steps:
@@ -72,3 +80,68 @@ jobs:
             VCS_REF=${{ github.sha }}
             SOURCE_URL=${{ github.server_url }}/${{ github.repository }}
       - run: echo "Immutable image digest ${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+      - name: Sign exact immutable digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "ghcr.io/${GITHUB_REPOSITORY}@${DIGEST}"
+
+  verify-release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+      - name: Verify signature identity, issuer, digest, and Rekor inclusion
+        env:
+          DIGEST: ${{ needs.publish.outputs.digest }}
+        run: |
+          cosign verify \
+            --certificate-identity "https://github.com/${GITHUB_REPOSITORY}/.github/workflows/ci.yml@refs/heads/main" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "ghcr.io/${GITHUB_REPOSITORY}@${DIGEST}"
+      - uses: docker/setup-buildx-action@v3
+      - name: Verify SBOM and provenance attestations exist
+        env:
+          DIGEST: ${{ needs.publish.outputs.digest }}
+        run: |
+          docker buildx imagetools inspect \
+            "ghcr.io/${GITHUB_REPOSITORY}@${DIGEST}" \
+            --format '{{ json .SBOM }}' | grep -q 'spdxVersion'
+          docker buildx imagetools inspect \
+            "ghcr.io/${GITHUB_REPOSITORY}@${DIGEST}" \
+            --format '{{ json .Provenance }}' | grep -q 'buildType'
+
+  sign-existing-release:
+    if: github.event_name == 'workflow_dispatch' && inputs.image_digest != ''
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: provisioning-production-release
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - name: Validate immutable digest input
+        env:
+          DIGEST: ${{ inputs.image_digest }}
+        run: '[[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]'
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+      - name: Sign exact existing digest
+        env:
+          DIGEST: ${{ inputs.image_digest }}
+        run: cosign sign --yes "ghcr.io/${GITHUB_REPOSITORY}@${DIGEST}"
+      - name: Independently verify signature identity and issuer
+        env:
+          DIGEST: ${{ inputs.image_digest }}
+        run: |
+          cosign verify \
+            --certificate-identity "https://github.com/${GITHUB_REPOSITORY}/.github/workflows/ci.yml@refs/heads/main" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "ghcr.io/${GITHUB_REPOSITORY}@${DIGEST}"
