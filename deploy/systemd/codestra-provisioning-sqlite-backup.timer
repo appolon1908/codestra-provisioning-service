@@ -9,4 +9,3 @@ Unit=codestra-provisioning-sqlite-backup.service
 
 [Install]
 WantedBy=timers.target
-
