@@ -66,6 +66,13 @@ def backup(args: argparse.Namespace) -> None:
     final = destination / f"provisioning-{timestamp}.sqlite3.aes256gcm"
     metadata_path = final.with_suffix(final.suffix + ".json")
     started = time.monotonic()
+    previous_metadata = destination / "latest.json"
+    previous = {}
+    if previous_metadata.is_file():
+        try:
+            previous = json.loads(previous_metadata.read_text())
+        except (OSError, ValueError, json.JSONDecodeError):
+            previous = {}
     with tempfile.TemporaryDirectory(dir=destination) as temporary:
         snapshot = Path(temporary) / "snapshot.sqlite3"
         source_db = sqlite3.connect(f"file:{source}?mode=ro", uri=True, timeout=30)
@@ -97,6 +104,10 @@ def backup(args: argparse.Namespace) -> None:
         "size_bytes": final.stat().st_size,
         "retention_days": args.retention_days,
         "duration_seconds": round(time.monotonic() - started, 3),
+        "backup_failures_total": int(previous.get("backup_failures_total", 0)),
+        "restore_rehearsal_timestamp_seconds": previous.get(
+            "restore_rehearsal_timestamp_seconds", 0
+        ),
         **validation,
     }
     metadata_path.write_text(json.dumps(metadata, sort_keys=True) + "\n")
@@ -136,6 +147,14 @@ def restore_verify(args: argparse.Namespace) -> None:
         "restore_rto_seconds": round(time.monotonic() - started, 3),
         **validation,
     }
+    latest_metadata = backup_path.parent / "latest.json"
+    if latest_metadata.is_file():
+        metadata = json.loads(latest_metadata.read_text())
+        metadata["restore_rehearsal_timestamp_seconds"] = time.time()
+        pending = backup_path.parent / ".latest.json.tmp"
+        pending.write_text(json.dumps(metadata, sort_keys=True) + "\n")
+        os.chmod(pending, 0o600)
+        os.replace(pending, latest_metadata)
     print(json.dumps(result, sort_keys=True))
 
 
@@ -158,4 +177,25 @@ def parser() -> argparse.ArgumentParser:
 
 if __name__ == "__main__":
     arguments = parser().parse_args()
-    arguments.handler(arguments)
+    try:
+        arguments.handler(arguments)
+    except Exception:
+        if arguments.command == "backup":
+            destination = Path(arguments.destination)
+            destination.mkdir(mode=0o700, parents=True, exist_ok=True)
+            latest = destination / "latest.json"
+            metadata = {}
+            if latest.is_file():
+                try:
+                    metadata = json.loads(latest.read_text())
+                except (OSError, ValueError, json.JSONDecodeError):
+                    metadata = {}
+            metadata["backup_failures_total"] = int(
+                metadata.get("backup_failures_total", 0)
+            ) + 1
+            metadata["last_failure_at"] = datetime.now(UTC).isoformat()
+            pending = destination / ".latest.json.tmp"
+            pending.write_text(json.dumps(metadata, sort_keys=True) + "\n")
+            os.chmod(pending, 0o600)
+            os.replace(pending, latest)
+        raise

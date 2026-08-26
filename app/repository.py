@@ -40,6 +40,8 @@ class StateRepository:
         self.path = path
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
+        self._sqlite_write_errors = 0
+        self._sqlite_lock_errors = 0
         self._connection = sqlite3.connect(
             path, check_same_thread=False, isolation_level=None, timeout=30
         )
@@ -227,6 +229,15 @@ class StateRepository:
             "size_bytes": candidate.stat().st_size if candidate.is_file() else 0,
             "mode": candidate.stat().st_mode & 0o777 if candidate.is_file() else 0,
         }
+
+    def record_sqlite_error(self, error: BaseException) -> None:
+        self._sqlite_write_errors += 1
+        message = str(error).lower()
+        if "locked" in message or "busy" in message:
+            self._sqlite_lock_errors += 1
+
+    def sqlite_error_counts(self) -> tuple[int, int]:
+        return self._sqlite_write_errors, self._sqlite_lock_errors
     def transition_mock_mailbox(
         self,
         employee_id: str,

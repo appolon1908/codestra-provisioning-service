@@ -127,6 +127,9 @@ class DependencyReadiness:
         self, name: str, config: dict[str, Any]
     ) -> str | None:
         try:
+            credential = read_secret_file(config["credential_file"])
+            if not credential:
+                return f"{name}_credential_unusable"
             async with httpx.AsyncClient(
                 timeout=self._timeout(),
                 verify=config["ca_file"],

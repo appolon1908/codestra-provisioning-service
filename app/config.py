@@ -171,12 +171,18 @@ class Settings:
             errors.append("jwt_jwks_not_canonical")
         if not self.jwt_expected_azp:
             errors.append("jwt_expected_azp_missing")
+        if self.jwt_expected_azp == "REQUIRED_PRODUCTION_CLIENT_ID":
+            errors.append("production_client_placeholder")
         if self.jwt_allowed_clients != frozenset({self.jwt_expected_azp}):
             errors.append("jwt_allowed_clients_invalid")
         if self.environment == "staging" and self.jwt_expected_azp != MACHINE_CLIENT_ID:
             errors.append("jwt_expected_azp_invalid")
         if self.environment == "production" and self.jwt_expected_azp.endswith("-staging"):
             errors.append("production_client_is_staging")
+        if enabled("CALLBACK_GATE") and not self.callback_url:
+            errors.append("callback_url_missing")
+        if self.callback_url and self.callback_url.startswith("REQUIRED_"):
+            errors.append("callback_url_placeholder")
         if self.jwt_required_scopes != MACHINE_SCOPES:
             errors.append("jwt_required_scopes_invalid")
         if self.jwt_max_token_ttl_seconds != MAX_TOKEN_TTL_SECONDS:

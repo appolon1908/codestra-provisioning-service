@@ -122,3 +122,17 @@ def test_production_rejects_staging_machine_client(tmp_path):
         jwt_allowed_clients=frozenset({"codestra-provisioning-service-staging"}),
     )
     assert "production_client_is_staging" in production.readiness_errors()
+
+
+def test_production_rejects_unresolved_client_and_callback_placeholders(tmp_path):
+    _, settings, _, _ = material(tmp_path)
+    production = replace(
+        settings,
+        environment="production",
+        jwt_expected_azp="REQUIRED_PRODUCTION_CLIENT_ID",
+        jwt_allowed_clients=frozenset({"REQUIRED_PRODUCTION_CLIENT_ID"}),
+        callback_url="REQUIRED_PRODUCTION_CALLBACK_URL",
+    )
+    errors = production.readiness_errors()
+    assert "production_client_placeholder" in errors
+    assert "callback_url_placeholder" in errors

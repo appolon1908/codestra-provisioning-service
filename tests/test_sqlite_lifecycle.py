@@ -42,6 +42,9 @@ def test_encrypted_backup_and_isolated_restore(tmp_path, capsys):
     assert restored["integrity_check"] == "ok"
     assert restored["quick_check"] == "ok"
     assert restored["schema_tables"] == 1
+    assert json.loads((destination / "latest.json").read_text())[
+        "restore_rehearsal_timestamp_seconds"
+    ] > 0
 
 
 def test_repository_database_files_are_private(tmp_path):
