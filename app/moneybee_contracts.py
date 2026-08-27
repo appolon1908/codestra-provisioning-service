@@ -8,7 +8,7 @@ Middleware commands. Middleware remains the only cross-system mutation boundary.
 import typing
 import uuid
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+import pydantic
 
 
 PROHIBITED_SECRET_KEYS = frozenset(
@@ -45,29 +45,29 @@ def _assert_no_identity_secret_material(value: object, path: str = "payload") ->
             _assert_no_identity_secret_material(nested, f"{path}[{index}]")
 
 
-class MoneyBeeAccountProvisioningIntent(BaseModel):
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+class MoneyBeeAccountProvisioningIntent(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    event_id: str = Field(min_length=8, max_length=160)
+    event_id: str = pydantic.Field(min_length=8, max_length=160)
     tenant_id: uuid.UUID
     user_id: uuid.UUID
     organization_id: uuid.UUID
-    correlation_id: str = Field(min_length=8, max_length=160)
-    email: str = Field(min_length=3, max_length=320, pattern=r"^[^\s@]+@[^\s@]+$")
+    correlation_id: str = pydantic.Field(min_length=8, max_length=160)
+    email: str = pydantic.Field(min_length=3, max_length=320, pattern=r"^[^\s@]+@[^\s@]+$")
     email_verified: typing.Literal[True]
     membership_type: typing.Literal["BORROWER"]
-    display_name: str | None = Field(default=None, max_length=255)
+    display_name: str | None = pydantic.Field(default=None, max_length=255)
     marketing_consent: bool = False
 
-    @model_validator(mode="after")
+    @pydantic.model_validator(mode="after")
     def verified_email_is_required(self):
         if not self.email_verified:
             raise ValueError("verified MoneyBee email is required")
         return self
 
 
-class MoneyBeeMiddlewareCommand(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+class MoneyBeeMiddlewareCommand(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(extra="forbid")
 
     destination: typing.Literal["middleware-api"] = "middleware-api"
     command: str
@@ -75,15 +75,15 @@ class MoneyBeeMiddlewareCommand(BaseModel):
     correlation_id: str
     payload: dict[str, object]
 
-    @field_validator("payload", mode="before")
+    @pydantic.field_validator("payload", mode="before")
     @classmethod
     def reject_identity_secret_material(cls, value: object) -> object:
         _assert_no_identity_secret_material(value)
         return value
 
 
-class MoneyBeeProvisioningPlan(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+class MoneyBeeProvisioningPlan(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(extra="forbid")
 
     source_event_id: str
     commands: list[MoneyBeeMiddlewareCommand]
