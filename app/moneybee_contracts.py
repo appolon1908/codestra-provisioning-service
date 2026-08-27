@@ -5,9 +5,7 @@ It converts a verified MoneyBee account event into a deterministic set of
 Middleware commands. Middleware remains the only cross-system mutation boundary.
 """
 
-from __future__ import annotations
-
-from typing import Any, Literal
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -32,7 +30,7 @@ PROHIBITED_SECRET_KEYS = frozenset(
 )
 
 
-def _assert_no_identity_secret_material(value: Any, path: str = "payload") -> None:
+def _assert_no_identity_secret_material(value: object, path: str = "payload") -> None:
     """Reject secret-bearing keys anywhere in a command payload."""
 
     if isinstance(value, dict):
@@ -79,7 +77,7 @@ class MoneyBeeMiddlewareCommand(BaseModel):
 
     @field_validator("payload", mode="before")
     @classmethod
-    def reject_identity_secret_material(cls, value: Any) -> Any:
+    def reject_identity_secret_material(cls, value: object) -> object:
         _assert_no_identity_secret_material(value)
         return value
 
