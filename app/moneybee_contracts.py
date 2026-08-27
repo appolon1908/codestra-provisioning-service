@@ -5,8 +5,8 @@ It converts a verified MoneyBee account event into a deterministic set of
 Middleware commands. Middleware remains the only cross-system mutation boundary.
 """
 
-from typing import Literal
-from uuid import UUID
+import typing
+import uuid
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -49,13 +49,13 @@ class MoneyBeeAccountProvisioningIntent(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     event_id: str = Field(min_length=8, max_length=160)
-    tenant_id: UUID
-    user_id: UUID
-    organization_id: UUID
+    tenant_id: uuid.UUID
+    user_id: uuid.UUID
+    organization_id: uuid.UUID
     correlation_id: str = Field(min_length=8, max_length=160)
     email: str = Field(min_length=3, max_length=320, pattern=r"^[^\s@]+@[^\s@]+$")
-    email_verified: Literal[True]
-    membership_type: Literal["BORROWER"]
+    email_verified: typing.Literal[True]
+    membership_type: typing.Literal["BORROWER"]
     display_name: str | None = Field(default=None, max_length=255)
     marketing_consent: bool = False
 
@@ -69,7 +69,7 @@ class MoneyBeeAccountProvisioningIntent(BaseModel):
 class MoneyBeeMiddlewareCommand(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    destination: Literal["middleware-api"] = "middleware-api"
+    destination: typing.Literal["middleware-api"] = "middleware-api"
     command: str
     idempotency_key: str
     correlation_id: str
@@ -87,11 +87,11 @@ class MoneyBeeProvisioningPlan(BaseModel):
 
     source_event_id: str
     commands: list[MoneyBeeMiddlewareCommand]
-    direct_keycloak_admin_access: Literal[False] = False
-    direct_odoo_access: Literal[False] = False
-    direct_n8n_access: Literal[False] = False
-    direct_klyrow_access: Literal[False] = False
-    contains_identity_secret_material: Literal[False] = False
+    direct_keycloak_admin_access: typing.Literal[False] = False
+    direct_odoo_access: typing.Literal[False] = False
+    direct_n8n_access: typing.Literal[False] = False
+    direct_klyrow_access: typing.Literal[False] = False
+    contains_identity_secret_material: typing.Literal[False] = False
 
 
 def build_moneybee_provisioning_plan(
