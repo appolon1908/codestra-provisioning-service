@@ -1,3 +1,4 @@
+# ruff: noqa: I001
 """MoneyBee account-provisioning intent contracts.
 
 This module intentionally does not call Keycloak, Odoo, n8n, Klyrow or Postal.
