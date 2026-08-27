@@ -7,17 +7,10 @@ Middleware commands. Middleware remains the only cross-system mutation boundary.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    field_validator,
-    model_validator,
-)
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 PROHIBITED_SECRET_KEYS = frozenset(
@@ -42,14 +35,14 @@ PROHIBITED_SECRET_KEYS = frozenset(
 def _assert_no_identity_secret_material(value: Any, path: str = "payload") -> None:
     """Reject secret-bearing keys anywhere in a command payload."""
 
-    if isinstance(value, Mapping):
+    if isinstance(value, dict):
         for raw_key, nested in value.items():
             key = str(raw_key).strip().lower()
             if key in PROHIBITED_SECRET_KEYS:
                 raise ValueError(f"identity secret material is prohibited at {path}.{key}")
             _assert_no_identity_secret_material(nested, f"{path}.{key}")
         return
-    if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
+    if isinstance(value, list | tuple | set | frozenset):
         for index, nested in enumerate(value):
             _assert_no_identity_secret_material(nested, f"{path}[{index}]")
 
