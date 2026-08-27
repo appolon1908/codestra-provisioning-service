@@ -11,7 +11,13 @@ from collections.abc import Mapping, Sequence
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 
 PROHIBITED_SECRET_KEYS = frozenset(
@@ -43,7 +49,7 @@ def _assert_no_identity_secret_material(value: Any, path: str = "payload") -> No
                 raise ValueError(f"identity secret material is prohibited at {path}.{key}")
             _assert_no_identity_secret_material(nested, f"{path}.{key}")
         return
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+    if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
         for index, nested in enumerate(value):
             _assert_no_identity_secret_material(nested, f"{path}[{index}]")
 
