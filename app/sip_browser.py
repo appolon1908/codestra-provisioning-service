@@ -15,8 +15,6 @@ from .contracts import (
 from .repository import StateRepository
 from .secrets import read_secret_file
 
-CANONICAL_BROWSER_WSS_URL = "wss://wss.codestra.agency:8089/ws"
-
 
 class SipBrowserSessionError(RuntimeError):
     pass
@@ -30,9 +28,6 @@ class SipBrowserSessionManager:
         repository: StateRepository,
         adapters: dict,
         turn_secret_file: str,
-        *,
-        endpoint: int = 6101,
-        campaign: str = "TEST_SYN",
     ):
         self.repository = repository
         adapter = adapters.get(TargetSystem.SIP.value)
@@ -40,8 +35,6 @@ class SipBrowserSessionManager:
             raise RuntimeError("sip_runtime_adapter_required")
         self.sip_adapter = adapter
         self.turn_secret_file = turn_secret_file
-        self.endpoint = endpoint
-        self.campaign = campaign
 
     def _validated_command(self, request: SipBrowserSessionRequest):
         results = {
@@ -69,8 +62,6 @@ class SipBrowserSessionManager:
             or keycloak.get("attributes", {}).get("role_template") != request.role
             or request.campaign
             not in set(vicidial.get("campaigns", []))
-            or request.endpoint != self.endpoint
-            or request.campaign != self.campaign
         ):
             raise SipBrowserSessionError("identity_authorization_mismatch")
         return commands["sip"]
@@ -111,7 +102,7 @@ class SipBrowserSessionManager:
             sip_uri=(
                 f"sip:{session['endpoint']}@vicidial-staging.codestra.agency"
             ),
-            approved_wss_url=CANONICAL_BROWSER_WSS_URL,
+            approved_wss_url="wss://vicidial-staging.codestra.agency:8089/ws",
             temporary_turn_username=turn_username,
             temporary_turn_credential=turn_credential,
             approved_turn_url=(

@@ -1,5 +1,0 @@
-services:
-  secrets-init:
-    image: codestra/provisioning-service:app-provisioning-audit-20260726
-  provisioning-service:
-    image: codestra/provisioning-service:app-provisioning-audit-20260726

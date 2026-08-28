@@ -1,11 +1,10 @@
-import asyncio
 import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 
 import jwt
 from fastapi import Header, HTTPException, Request, status
-from jwt import InvalidTokenError, PyJWKClient, PyJWKClientError
+from jwt import InvalidTokenError
 
 from .config import Settings, enabled
 from .repository import StateRepository
@@ -22,11 +21,6 @@ class JWTAuthorizer:
     def __init__(self, settings: Settings, repository: StateRepository):
         self.settings = settings
         self.repository = repository
-        self.jwks_client = (
-            PyJWKClient(settings.jwt_jwks_url, cache_keys=True)
-            if settings.jwt_jwks_url
-            else None
-        )
 
     async def authenticate(
         self,
@@ -50,16 +44,10 @@ class JWTAuthorizer:
         if scheme.lower() != "bearer" or not separator or not token or " " in token:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid_authorization")
         try:
+            public_key = Path(self.settings.jwt_public_key_file).read_text()
             header = jwt.get_unverified_header(token)
             if header.get("alg") not in self.settings.jwt_algorithms:
                 raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid_algorithm")
-            if self.jwks_client is not None:
-                signing_key = await asyncio.to_thread(
-                    self.jwks_client.get_signing_key_from_jwt, token
-                )
-                public_key = signing_key.key
-            else:
-                public_key = Path(self.settings.jwt_public_key_file).read_text()
             claims = jwt.decode(
                 token,
                 public_key,
@@ -73,27 +61,20 @@ class JWTAuthorizer:
             )
         except HTTPException:
             raise
-        except (OSError, InvalidTokenError, PyJWKClientError, ValueError, TypeError) as exc:
+        except (OSError, InvalidTokenError, ValueError, TypeError) as exc:
             raise HTTPException(
                 status.HTTP_401_UNAUTHORIZED, "token_validation_failed"
             ) from exc
         subject = claims.get("sub")
         client_id = claims.get("azp")
         jti = claims.get("jti")
-        scopes = claims.get("codestra_scopes")
-        issued_at = claims.get("iat")
-        expires_at = claims.get("exp")
-        parsed_scopes = frozenset(scopes.split()) if isinstance(scopes, str) else frozenset()
+        scopes = claims.get("codestra_scopes") or claims.get("scope")
         if (
             not isinstance(subject, str)
-            or client_id != self.settings.jwt_expected_azp
+            or not isinstance(client_id, str)
+            or client_id not in self.settings.jwt_allowed_clients
             or not isinstance(jti, str)
-            or not jti
-            or type(issued_at) is not int
-            or type(expires_at) is not int
-            or expires_at <= issued_at
-            or expires_at - issued_at > self.settings.jwt_max_token_ttl_seconds
-            or parsed_scopes != self.settings.jwt_required_scopes
+            or not isinstance(scopes, str)
             or claims.get("typ") not in {"Bearer", "at+jwt"}
         ):
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid_service_identity")
@@ -105,7 +86,7 @@ class JWTAuthorizer:
             self.settings.rate_limit_window_seconds,
         ):
             raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "rate_limit_exceeded")
-        return Principal(subject, client_id, parsed_scopes)
+        return Principal(subject, client_id, frozenset(scopes.split()))
 
 
 def require_scope(authorizer: JWTAuthorizer, required: str):

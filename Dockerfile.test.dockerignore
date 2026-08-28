@@ -1,8 +1,0 @@
-.git
-.github
-.pytest_cache
-.ruff_cache
-__pycache__
-*.pyc
-deploy
-*.md

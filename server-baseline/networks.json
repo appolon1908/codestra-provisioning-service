@@ -1,0 +1,26 @@
+{
+  "codestra-provisioning-service-provisioning-service-1": {
+    "codestra-identity_identity_service": {
+      "aliases": [
+        "codestra-provisioning-service-provisioning-service-1",
+        "provisioning-service"
+      ],
+      "ip_address": "172.21.0.15"
+    },
+    "codestra-provisioning-service_private": {
+      "aliases": [
+        "codestra-provisioning-service-provisioning-service-1",
+        "provisioning-service",
+        "provisioning-service"
+      ],
+      "ip_address": "172.31.0.10"
+    },
+    "codestra-provisioning-service_telephony_private": {
+      "aliases": [
+        "codestra-provisioning-service-provisioning-service-1",
+        "provisioning-service"
+      ],
+      "ip_address": "10.250.240.2"
+    }
+  }
+}

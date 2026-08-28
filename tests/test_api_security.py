@@ -1,30 +1,15 @@
 import time
 import uuid
-from dataclasses import replace
-from inspect import getclosurevars
-from types import SimpleNamespace
 
 import jwt
-import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from fastapi import HTTPException
 from fastapi.testclient import TestClient
-from starlette.requests import Request
 
-from app.config import (
-    CANONICAL_ISSUER,
-    CANONICAL_JWKS_URL,
-    MACHINE_AUDIENCE,
-    MACHINE_CLIENT_ID,
-    MACHINE_SCOPES,
-    MAX_TOKEN_TTL_SECONDS,
-    Settings,
-)
+from app.config import Settings
 from app.contracts import TargetSystem
 from app.main import create_app
 from app.repository import StateRepository
-from app.security import JWTAuthorizer, Principal
 from tests.helpers import FakeAdapter, execution
 
 
@@ -61,11 +46,6 @@ def material(tmp_path):
         adapter_config_file=str(placeholder),
         tls_cert_file=str(placeholder),
         tls_key_file=str(placeholder),
-        jwt_expected_azp="test-service",
-        jwt_required_scopes=frozenset(
-            {"identity:rotate", "provisioning:execute", "provisioning:read"}
-        ),
-        jwt_max_token_ttl_seconds=300,
     )
     repository = StateRepository(configured.state_database_path)
     adapter = FakeAdapter()
@@ -77,14 +57,14 @@ def material(tmp_path):
     return private, configured, app, adapter
 
 
-def token(private, settings, **changes):
+def token(private, settings, scope="provisioning:execute", **changes):
     now = int(time.time())
     claims = {
         "iss": settings.jwt_issuer,
         "aud": settings.jwt_audience,
         "sub": "service-account-test",
         "azp": "test-service",
-        "codestra_scopes": "identity:rotate provisioning:execute provisioning:read",
+        "scope": scope,
         "typ": "Bearer",
         "iat": now,
         "nbf": now - 1,
@@ -102,18 +82,20 @@ def test_strict_jwt_scope_replay_and_private_tls(tmp_path):
     url = f"/v1/provisioning/requests/{request.request_id}/execute"
     with TestClient(app, base_url="https://provisioning-service") as client:
         assert client.post(url, json=request.model_dump(mode="json")).status_code == 401
-        wrong_scope = token(private, settings, codestra_scopes="provisioning:read")
+        wrong_scope = token(private, settings, "provisioning:read")
         assert (
             client.post(
                 url,
                 json=request.model_dump(mode="json"),
                 headers={"Authorization": f"Bearer {wrong_scope}"},
             ).status_code
-            == 401
+            == 403
         )
         valid = token(
             private,
             settings,
+            scope="",
+            codestra_scopes="provisioning:execute",
             nbf=None,
         )
         response = client.post(
@@ -152,152 +134,6 @@ def test_strict_issuer_audience_and_size_limit(tmp_path):
         assert oversized.status_code == 413
 
 
-def test_canonical_token_contract_negative_matrix(tmp_path):
-    private, settings, app, _ = material(tmp_path)
-    request = execution()
-    url = f"/v1/provisioning/requests/{request.request_id}/execute"
-    second_private = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    now = int(time.time())
-    cases = (
-        token(private, settings, iss="https://auth.codestra.agency/realms/codestra"),
-        token(private, settings, aud="wrong-audience"),
-        token(private, settings, azp="codestra-client-provisioner"),
-        token(private, settings, azp="codestra-middleware-production"),
-        token(private, settings, azp="codestra-n8n"),
-        token(private, settings, azp=None),
-        token(private, settings, iat=None),
-        token(private, settings, exp=None),
-        token(private, settings, iat=now, exp=now),
-        token(private, settings, iat=now, exp=now + 301),
-        token(private, settings, iat=now - 600, exp=now - 300),
-        token(private, settings, jti=None),
-        token(private, settings, codestra_scopes=None, scope="provisioning:execute"),
-        token(private, settings, codestra_scopes="identity:rotate provisioning:read"),
-        token(private, settings, codestra_scopes="identity:rotate provisioning:execute"),
-        token(private, settings, codestra_scopes="provisioning:execute provisioning:read"),
-        token(
-            private,
-            settings,
-            codestra_scopes=(
-                "identity:rotate provisioning:execute provisioning:read realm-admin"
-            ),
-        ),
-        token(second_private, settings),
-    )
-    with TestClient(app, base_url="https://provisioning-service") as client:
-        for candidate in cases:
-            response = client.post(
-                url,
-                json=request.model_dump(mode="json"),
-                headers={"Authorization": f"Bearer {candidate}"},
-            )
-            assert response.status_code == 401
-
-
-def test_maximum_300_second_token_and_replay(tmp_path):
-    private, settings, app, _ = material(tmp_path)
-    request = execution()
-    url = f"/v1/provisioning/requests/{request.request_id}/execute"
-    now = int(time.time())
-    candidate = token(private, settings, iat=now, exp=now + 300)
-    with TestClient(app, base_url="https://provisioning-service") as client:
-        first = client.post(
-            url,
-            json=request.model_dump(mode="json"),
-            headers={"Authorization": f"Bearer {candidate}"},
-        )
-        assert first.status_code == 200
-        replay = client.post(
-            url,
-            json=request.model_dump(mode="json"),
-            headers={"Authorization": f"Bearer {candidate}"},
-        )
-        assert replay.status_code == 409
-
-
-def test_runtime_defaults_are_the_canonical_machine_contract(monkeypatch):
-    monkeypatch.setenv("ENVIRONMENT", "staging")
-    for name in (
-        "JWT_ISSUER",
-        "JWT_JWKS_URL",
-        "JWT_AUDIENCE",
-        "JWT_EXPECTED_AZP",
-        "JWT_ALLOWED_CLIENTS",
-        "JWT_REQUIRED_SCOPES",
-        "JWT_MAX_TOKEN_TTL_SECONDS",
-    ):
-        monkeypatch.delenv(name, raising=False)
-    settings = Settings.load()
-    assert settings.jwt_issuer == CANONICAL_ISSUER
-    assert settings.jwt_jwks_url == CANONICAL_JWKS_URL
-    assert settings.jwt_audience == MACHINE_AUDIENCE
-    assert settings.jwt_expected_azp == MACHINE_CLIENT_ID
-    assert settings.jwt_allowed_clients == frozenset({MACHINE_CLIENT_ID})
-    assert settings.jwt_required_scopes == MACHINE_SCOPES
-    assert settings.jwt_max_token_ttl_seconds == MAX_TOKEN_TTL_SECONDS
-
-
-def test_readiness_rejects_sip_boundary_overrides_and_not_jwks_local_key(tmp_path):
-    _, settings, _, _ = material(tmp_path)
-    jwks = replace(
-        settings,
-        jwt_jwks_url="https://auth.codestra.co/realms/codestra/protocol/openid-connect/certs",
-        jwt_public_key_file=str(tmp_path / "absent.pem"),
-        sip_browser_endpoint=6102,
-        sip_browser_campaign="OTHER",
-    )
-    errors = jwks.readiness_errors()
-    assert "sip_browser_endpoint_invalid" in errors
-    assert "sip_browser_campaign_invalid" in errors
-    assert "jwt_public_key_missing" not in errors
-
-
-def test_local_key_mode_requires_existing_public_key(tmp_path):
-    _, settings, _, _ = material(tmp_path)
-    missing = replace(
-        settings,
-        jwt_jwks_url="",
-        jwt_public_key_file=str(tmp_path / "absent.pem"),
-    )
-    assert "jwt_public_key_missing" in missing.readiness_errors()
-    present = replace(settings, jwt_jwks_url="")
-    assert "jwt_public_key_missing" not in present.readiness_errors()
-
-
-@pytest.mark.parametrize(
-    ("name", "value"),
-    (("SIP_BROWSER_ENDPOINT", "6102"), ("SIP_BROWSER_CAMPAIGN", "OTHER")),
-)
-def test_runtime_refuses_noncanonical_sip_boundary(monkeypatch, name, value):
-    monkeypatch.setenv("ENVIRONMENT", "staging")
-    monkeypatch.setenv(name, value)
-    with pytest.raises(RuntimeError, match="certification boundary invalid"):
-        Settings.load()
-
-
-@pytest.mark.asyncio
-async def test_jwks_lookup_runs_in_worker_thread(tmp_path, monkeypatch):
-    private, settings, _, _ = material(tmp_path)
-    settings = replace(settings, jwt_jwks_url="https://auth.test/jwks")
-    authorizer = JWTAuthorizer(settings, StateRepository(settings.state_database_path))
-    authorizer.jwks_client = SimpleNamespace(
-        get_signing_key_from_jwt=lambda _: SimpleNamespace(key=private.public_key())
-    )
-    calls = []
-
-    async def fake_to_thread(function, *args):
-        calls.append(function)
-        return function(*args)
-
-    monkeypatch.setattr("app.security.asyncio.to_thread", fake_to_thread)
-    request = Request({"type": "http", "query_string": b"", "headers": []})
-    principal = await authorizer.authenticate(
-        request, f"Bearer {token(private, settings)}"
-    )
-    assert principal.client_id == "test-service"
-    assert calls == [authorizer.jwks_client.get_signing_key_from_jwt]
-
-
 def test_required_route_set_is_exact(tmp_path):
     _, _, app, _ = material(tmp_path)
     routes = {(method, route.path) for route in app.routes for method in route.methods or []}
@@ -317,67 +153,6 @@ def test_required_route_set_is_exact(tmp_path):
         ("GET", "/metrics"),
     }
     assert required <= routes
-
-
-@pytest.mark.asyncio
-async def test_every_protected_route_enforces_its_contract_scope(
-    tmp_path, monkeypatch
-):
-    _, _, app, _ = material(tmp_path)
-    expected = {
-        ("POST", "/v1/provisioning/requests/{request_id}/execute"): "provisioning:execute",
-        ("POST", "/v1/provisioning/requests/{request_id}/retry"): "provisioning:execute",
-        ("POST", "/v1/provisioning/requests/{request_id}/verify"): "provisioning:execute",
-        ("POST", "/v1/provisioning/requests/{request_id}/cancel"): "provisioning:execute",
-        ("GET", "/v1/provisioning/requests/{request_id}"): "provisioning:read",
-        ("POST", "/v1/identities/{employee_id}/suspend"): "provisioning:execute",
-        ("POST", "/v1/identities/{employee_id}/reactivate"): "provisioning:execute",
-        ("POST", "/v1/identities/{employee_id}/terminate"): "provisioning:execute",
-        ("POST", "/v1/identities/{employee_id}/rotate"): "identity:rotate",
-        ("GET", "/v1/identities/{employee_id}/reconciliation"): "provisioning:read",
-        ("POST", "/session"): "provisioning:execute",
-        ("POST", "/renew"): "identity:rotate",
-        ("GET", "/config"): "provisioning:read",
-        ("POST", "/revoke"): "identity:rotate",
-    }
-    actual = {}
-    dependencies = {}
-    for route in app.routes:
-        for method in route.methods or []:
-            key = (method, route.path)
-            if key not in expected:
-                continue
-            scopes = [
-                getclosurevars(item.call).nonlocals.get("required")
-                for item in route.dependant.dependencies
-                if item.call.__name__ == "dependency"
-            ]
-            assert len(scopes) == 1
-            actual[key] = scopes[0]
-            dependencies[key] = next(
-                item.call
-                for item in route.dependant.dependencies
-                if item.call.__name__ == "dependency"
-            )
-    assert actual == expected
-    request = Request({"type": "http", "query_string": b"", "headers": []})
-    for key, required in expected.items():
-        dependency = dependencies[key]
-        authorizer = getclosurevars(dependency).nonlocals["authorizer"]
-
-        async def authorized(*_, granted=required):
-            return Principal("subject", "test-service", frozenset({granted}))
-
-        monkeypatch.setattr(authorizer, "authenticate", authorized)
-        assert (await dependency(request, None)).scopes == frozenset({required})
-
-        async def unauthorized(*_):
-            return Principal("subject", "test-service", frozenset())
-
-        monkeypatch.setattr(authorizer, "authenticate", unauthorized)
-        with pytest.raises(HTTPException) as denied:
-            await dependency(request, None)
-        assert denied.value.status_code == 403
 
 
 def test_authoritative_numeric_odoo_request_id_is_accepted(tmp_path):

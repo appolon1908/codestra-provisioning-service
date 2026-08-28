@@ -1,0 +1,100 @@
+name: codestra-provisioning-service
+
+services:
+  secrets-init:
+    image: codestra/provisioning-service:identity-integration-20260726-v15
+    user: "0:0"
+    entrypoint: ["python", "/app/scripts/init_secrets.py"]
+    restart: "no"
+    read_only: true
+    volumes:
+      - /etc/codestra/secrets/provisioning-service:/source-secrets:ro
+      - runtime_secrets:/run/provisioning-secrets
+      - state:/var/lib/codestra
+    networks:
+      - private
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+
+  provisioning-service:
+    image: codestra/provisioning-service:identity-integration-20260726-v15
+    restart: unless-stopped
+    env_file:
+      - /etc/codestra/secrets/provisioning-service/service.env
+    depends_on:
+      secrets-init:
+        condition: service_completed_successfully
+    volumes:
+      - runtime_secrets:/run/provisioning-secrets:ro
+      - state:/var/lib/codestra
+    networks:
+      private:
+        aliases:
+          - provisioning-service
+      telephony_private: {}
+      keycloak_staging: {}
+    extra_hosts:
+      - "edge.internal.codestra.agency:10.40.0.2"
+    expose:
+      - "8443"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    user: "10001:10001"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: 1
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import ssl,urllib.request; c=ssl.create_default_context(cafile='/run/provisioning-secrets/ca.crt'); urllib.request.urlopen('https://provisioning-service:8443/ready',context=c,timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+    labels:
+      codestra.environment: STAGING
+      codestra.isolation: private-only
+      codestra.service: codestra-provisioning-service
+
+networks:
+  private:
+    internal: true
+    labels:
+      codestra.environment: STAGING
+      codestra.isolation: private-only
+  telephony_private:
+    ipam:
+      config:
+        - subnet: 10.250.240.0/28
+    labels:
+      codestra.environment: STAGING
+      codestra.isolation: server-b-mtls-only
+  keycloak_staging:
+    external: true
+    name: codestra-identity_identity_service
+
+volumes:
+  runtime_secrets:
+    labels:
+      codestra.environment: STAGING
+  state:
+    labels:
+      codestra.environment: STAGING

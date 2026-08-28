@@ -1,0 +1,26 @@
+services:
+  provisioning-service:
+    environment:
+      LIVE_SMS_DELIVERY: "false"
+      LIVE_EMAIL_DELIVERY: "false"
+      LIVE_PSTN_DIALING: "false"
+    volumes:
+      - /opt/codestra/safety/live-delivery-admission.sh:/usr/local/bin/live-delivery-admission:ro
+    entrypoint:
+      - /usr/local/bin/live-delivery-admission
+      - python
+      - -m
+      - uvicorn
+      - app.main:create_app
+      - --factory
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8443"
+      - --workers
+      - "1"
+      - --ssl-certfile
+      - /run/provisioning-secrets/server.crt
+      - --ssl-keyfile
+      - /run/provisioning-secrets/server.key
+      - --no-server-header

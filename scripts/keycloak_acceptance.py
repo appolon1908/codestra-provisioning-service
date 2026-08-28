@@ -6,7 +6,7 @@ from pathlib import Path
 
 from app.adapters import PermanentAdapterError
 from app.contracts import Operation, StepCommand, TargetSystem
-from app.keycloak import REQUIRED_ACTIONS, KeycloakAdminAdapter
+from app.keycloak import KeycloakAdminAdapter, REQUIRED_ACTIONS
 
 
 def command(

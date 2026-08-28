@@ -4,7 +4,6 @@ WORKDIR /work
 COPY requirements-dev.txt requirements.txt /work/
 RUN python -m pip install --no-cache-dir --requirement /work/requirements-dev.txt
 COPY app /work/app
-COPY scripts /work/scripts
 COPY tests /work/tests
 COPY pyproject.toml /work/pyproject.toml
 ENTRYPOINT ["pytest", "-q"]

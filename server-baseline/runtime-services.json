@@ -1,0 +1,10 @@
+[
+  {
+    "command": [],
+    "health_status": "healthy",
+    "image": "codestra/provisioning-service:identity-integration-20260726-v15",
+    "image_id": "sha256:db7dfcf1d8547d9daa9f1e1b7f7f834b0138b95e15fce95345e4e2e1211ed578",
+    "name": "codestra-provisioning-service-provisioning-service-1",
+    "revision_label": null
+  }
+]

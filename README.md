@@ -2,7 +2,7 @@
 
 Private, staging-only identity and access provisioning orchestration for Odoo,
 Keycloak, VICIdial, SIP, Agent Desktop, hosted email, protected credential
-storage, n8n event notification, verification, and reconciliation.
+storage, verification, and reconciliation.
 
 ## Security boundary
 

@@ -1,9 +1,0 @@
-title = "Codestra provisioning service"
-
-[extend]
-useDefault = true
-
-[[allowlists]]
-description = "Deterministic non-secret test idempotency value"
-paths = ['''tests/test_engine.py''']
-regexes = ['''activation-idempotency-0001''']

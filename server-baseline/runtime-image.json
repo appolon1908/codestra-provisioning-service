@@ -1,0 +1,134 @@
+[
+  {
+    "command": [],
+    "compose": {
+      "config_files": "/opt/codestra/provisioning-service/compose.yaml",
+      "project": "codestra-provisioning-service",
+      "service": "provisioning-service",
+      "working_directory": "/opt/codestra/provisioning-service"
+    },
+    "container_id": "30bd5c19d8c38b2c9907074bf3227dafc57d02ba550eb6435cd060677a1a0320",
+    "created": "2026-08-25T23:47:56.397225063Z",
+    "entrypoint": [
+      "python",
+      "-m",
+      "uvicorn",
+      "app.main:create_app",
+      "--factory",
+      "--host",
+      "0.0.0.0",
+      "--port",
+      "8443",
+      "--workers",
+      "1",
+      "--ssl-certfile",
+      "/run/provisioning-secrets/server.crt",
+      "--ssl-keyfile",
+      "/run/provisioning-secrets/server.key",
+      "--no-server-header"
+    ],
+    "environment_variable_names": [
+      "ADAPTER_CONFIG_FILE",
+      "CALLBACK_GATE",
+      "CLAIM_TIMEOUT_SECONDS",
+      "CREDENTIAL_ENCRYPTION_KEY_FILE",
+      "DEAD_LETTER_GATE",
+      "ENVIRONMENT",
+      "GPG_KEY",
+      "JWT_ALGORITHMS",
+      "JWT_ALLOWED_CLIENTS",
+      "JWT_AUDIENCE",
+      "JWT_ISSUER",
+      "JWT_PUBLIC_KEY_FILE",
+      "LANG",
+      "ODOO_CALLBACK_HMAC_SECRET_FILE",
+      "ODOO_CALLBACK_URL",
+      "PATH",
+      "PIP_DISABLE_PIP_VERSION_CHECK",
+      "PROVISIONING_SERVICE_GATE",
+      "PYTHONDONTWRITEBYTECODE",
+      "PYTHONUNBUFFERED",
+      "PYTHON_SHA256",
+      "PYTHON_VERSION",
+      "RATE_LIMIT_REQUESTS",
+      "RATE_LIMIT_WINDOW_SECONDS",
+      "RECONCILIATION_GATE",
+      "REQUEST_MAX_AGE_SECONDS",
+      "REQUEST_MAX_BYTES",
+      "RESTART_RECOVERY_GATE",
+      "RETRY_BASE_SECONDS",
+      "RETRY_GATE",
+      "SECRET_STORAGE_GATE",
+      "SERVICE_AUTHENTICATION_GATE",
+      "SERVICE_AUTHORIZATION_GATE",
+      "STATE_DATABASE_PATH",
+      "STEP_ENGINE_GATE",
+      "TLS_CERT_FILE",
+      "TLS_KEY_FILE"
+    ],
+    "health_status": "healthy",
+    "healthcheck": {
+      "interval": 10000000000,
+      "retries": 12,
+      "start_period": 10000000000,
+      "test": [
+        "CMD",
+        "python",
+        "-c",
+        "import ssl,urllib.request; c=ssl.create_default_context(cafile='/run/provisioning-secrets/ca.crt'); urllib.request.urlopen('https://provisioning-service:8443/ready',context=c,timeout=3)"
+      ],
+      "timeout": 5000000000
+    },
+    "image": "codestra/provisioning-service:identity-integration-20260726-v15",
+    "image_id": "sha256:db7dfcf1d8547d9daa9f1e1b7f7f834b0138b95e15fce95345e4e2e1211ed578",
+    "mounts": [
+      {
+        "destination": "/run/provisioning-secrets",
+        "read_only": true,
+        "source": "/var/lib/docker/volumes/codestra-provisioning-service_runtime_secrets/_data",
+        "type": "volume"
+      },
+      {
+        "destination": "/var/lib/codestra",
+        "read_only": false,
+        "source": "/var/lib/docker/volumes/codestra-provisioning-service_state/_data",
+        "type": "volume"
+      }
+    ],
+    "name": "codestra-provisioning-service-provisioning-service-1",
+    "networks": {
+      "codestra-identity_identity_service": {
+        "aliases": [
+          "codestra-provisioning-service-provisioning-service-1",
+          "provisioning-service"
+        ],
+        "ip_address": "172.21.0.15"
+      },
+      "codestra-provisioning-service_private": {
+        "aliases": [
+          "codestra-provisioning-service-provisioning-service-1",
+          "provisioning-service",
+          "provisioning-service"
+        ],
+        "ip_address": "172.31.0.10"
+      },
+      "codestra-provisioning-service_telephony_private": {
+        "aliases": [
+          "codestra-provisioning-service-provisioning-service-1",
+          "provisioning-service"
+        ],
+        "ip_address": "10.250.240.2"
+      }
+    },
+    "ports": {
+      "8443/tcp": null
+    },
+    "restart_policy": {
+      "MaximumRetryCount": 0,
+      "Name": "unless-stopped"
+    },
+    "revision_label": null,
+    "source_label": null,
+    "working_directory": "/app"
+  }
+]

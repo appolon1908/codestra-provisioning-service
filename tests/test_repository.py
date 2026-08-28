@@ -16,16 +16,6 @@ def test_duplicate_suppression_and_payload_conflict(tmp_path):
         repository.begin_execution(request.model_copy(update={"employee_id": "other"}), "b" * 64)
 
 
-def test_existing_execution_is_read_only_replay_probe(tmp_path):
-    repository = StateRepository(str(tmp_path / "state.db"))
-    request = execution()
-    assert repository.existing_execution(request, "a" * 64) == (None, False)
-    repository.begin_execution(request, "a" * 64)
-    assert repository.existing_execution(request, "a" * 64) == (None, True)
-    with pytest.raises(IdempotencyConflict):
-        repository.existing_execution(request, "b" * 64)
-
-
 def test_atomic_claim_and_restart_recovery(tmp_path):
     repository = StateRepository(str(tmp_path / "state.db"))
     request = execution()
@@ -61,236 +51,63 @@ def test_callback_retries_are_bounded(tmp_path):
     assert repository.counts()["failed_callbacks"] == 1
 
 
-def test_expired_active_sip_session_does_not_block_replacement(tmp_path):
+def test_employee_commands_preserves_canonical_binding_payload(tmp_path):
     repository = StateRepository(str(tmp_path / "state.db"))
-    values = {
-        "session_id": "old-session",
-        "employee_id": "employee-0001",
-        "keycloak_subject": "subject",
-        "odoo_employee_id": "employee-0001",
-        "vicidial_username": "synthetic_agent",
-        "endpoint": 6101,
-        "campaign": "TEST_SYN",
-        "role": "AGENT",
-        "browser_session_binding": "binding",
-        "credential_fingerprint": "fingerprint",
-        "expires_at": (datetime.now(UTC) - timedelta(seconds=1)).isoformat(),
-    }
-    repository.create_sip_browser_session(values)
-    assert repository.active_sip_browser_session(values["employee_id"]) is None
-    assert repository.sip_browser_session(values["session_id"])["state"] == "expired"
-    replacement = {
-        **values,
-        "session_id": "replacement-session",
-        "browser_session_binding": "replacement-binding",
-    }
-    assert repository.create_sip_browser_session(replacement)["state"] == "active"
-
-
-def test_command_views_keep_canonical_binding_and_newest_verification_step(tmp_path):
-    repository = StateRepository(str(tmp_path / "state.db"))
-    created = execution(steps=2)
-    created_steps = [
-        step.model_copy(update={"payload": {"binding": "canonical"}})
-        for step in created.steps
-    ]
-    created = created.model_copy(update={"steps": created_steps})
-    repository.begin_execution(created, "a" * 64)
-    for step in created_steps:
-        repository.complete_step(step.step_id, StepState.SUCCEEDED, {})
-    newest = repository.successful_commands(created.request_id)
-    assert [step.sequence for step in newest] == [1]
-
-    updated = execution(
-        request_id="request-00000002",
-        key="idempotency-key-00000002",
-        target=TargetSystem.ODOO,
-        operation=Operation.UPDATE,
-    )
-    updated = updated.model_copy(
-        update={"steps": [updated.steps[0].model_copy(update={"payload": {"partial": True}})]}
-    )
-    repository.begin_execution(updated, "b" * 64)
-    repository.complete_step(updated.steps[0].step_id, StepState.SUCCEEDED, {})
-    command = repository.employee_commands(created.employee_id)[0]
-    assert command.operation == Operation.UPDATE
-    assert command.payload == {"binding": "canonical", "partial": True}
-
-
-def test_compensation_view_keeps_latest_compensable_mutation(tmp_path):
-    repository = StateRepository(str(tmp_path / "state.db"))
-    request = execution(steps=2)
-    request = request.model_copy(
+    original = execution(target=TargetSystem.VICIDIAL).model_copy(
         update={
             "steps": [
-                request.steps[0],
-                request.steps[1].model_copy(
-                    update={"operation": Operation.ROTATE_CREDENTIALS}
-                ),
+                execution(target=TargetSystem.VICIDIAL).steps[0].model_copy(
+                    update={
+                        "payload": {
+                            "username": "synthetic-agent",
+                            "campaigns": ["TRANSFER_TEST"],
+                            "role": "AGENT",
+                        }
+                    }
+                )
             ]
         }
     )
-    repository.begin_execution(request, "a" * 64)
-    for step in request.steps:
-        repository.complete_step(step.step_id, StepState.SUCCEEDED, {})
-    compensable = repository.successful_commands(request.request_id)
-    assert [command.step_id for command in compensable] == [request.steps[0].step_id]
-
-
-def test_compensation_supersession_uses_successful_mutation_order(tmp_path):
-    repository = StateRepository(str(tmp_path / "state.db"))
-    older_request = execution()
-    newer_request = execution(
-        request_id="request-created-later-0001",
-        key="request-created-later-key",
-        operation=Operation.UPDATE,
-    )
-    repository.begin_execution(older_request, "a" * 64)
-    repository.begin_execution(newer_request, "b" * 64)
+    repository.begin_execution(original, "a" * 64)
     repository.complete_step(
-        newer_request.steps[0].step_id, StepState.SUCCEEDED, {}
+        original.steps[0].step_id,
+        StepState.SUCCEEDED,
+        {"external_id": "synthetic-agent"},
     )
+    later = execution(
+        request_id="request-later",
+        key="idempotency-later",
+        target=TargetSystem.VICIDIAL,
+        operation=Operation.SUSPEND,
+    )
+    repository.begin_execution(later, "b" * 64)
     repository.complete_step(
-        older_request.steps[0].step_id, StepState.SUCCEEDED, {}
+        later.steps[0].step_id,
+        StepState.SUCCEEDED,
+        {"external_id": "synthetic-agent"},
     )
-    assert not repository.compensation_superseded(
-        older_request.request_id,
-        older_request.steps[0].step_id,
-        TargetSystem.ODOO.value,
-    )
+    command = repository.employee_commands("employee-0001")[0]
+    assert command.operation == Operation.CREATE_DISABLED
+    assert command.payload["campaigns"] == ["TRANSFER_TEST"]
 
 
-def test_credential_rotation_does_not_supersede_access_compensation(tmp_path):
+def test_expired_browser_session_is_not_active(tmp_path):
     repository = StateRepository(str(tmp_path / "state.db"))
-    source = execution()
-    rotation = execution(
-        request_id="credential-rotation-0001",
-        key="credential-rotation-key",
-        operation=Operation.ROTATE_CREDENTIALS,
+    session = repository.create_sip_browser_session(
+        {
+            "session_id": "00000000-0000-4000-8000-000000000010",
+            "employee_id": "employee-expired",
+            "keycloak_subject": "subject-expired-0001",
+            "odoo_employee_id": "odoo-expired",
+            "vicidial_username": "expired-agent",
+            "endpoint": 6198,
+            "campaign": "TEST_EXP",
+            "role": "AGENT",
+            "browser_session_binding": "00000000-0000-4000-8000-000000000011",
+            "credential_fingerprint": "fingerprint",
+            "expires_at": (datetime.now(UTC) - timedelta(seconds=1)).isoformat(),
+        }
     )
-    repository.begin_execution(source, "a" * 64)
-    repository.complete_step(source.steps[0].step_id, StepState.SUCCEEDED, {})
-    repository.begin_execution(rotation, "b" * 64)
-    repository.complete_step(rotation.steps[0].step_id, StepState.SUCCEEDED, {})
-    assert not repository.compensation_superseded(
-        source.request_id,
-        source.steps[0].step_id,
-        TargetSystem.ODOO.value,
-    )
-
-
-def test_retried_request_is_removed_from_due_compensation(tmp_path):
-    repository = StateRepository(str(tmp_path / "state.db"))
-    request = execution()
-    repository.begin_execution(request, "a" * 64)
-    claimed = repository.claim_next(request.request_id)
-    assert claimed is not None
-    repository.fail_step(claimed.step_id, "synthetic", "permanent", None)
-    repository.record_compensation(
-        request.request_id,
-        claimed.step_id,
-        Operation.UPDATE.value,
-        "failed",
-        error_code="compensation_timeout",
-        retry_delay_seconds=0,
-    )
-    assert repository.due_compensation_request_ids() == [request.request_id]
-    assert repository.schedule_step_retry(request.request_id)
-    assert repository.due_compensation_request_ids() == []
-    retried = repository.claim_next(request.request_id)
-    assert retried is not None
-    repository.complete_step(retried.step_id, StepState.SUCCEEDED, {})
-    assert repository.due_compensation_request_ids() == []
-
-
-def test_cancelled_request_keeps_failed_compensation_due(tmp_path):
-    repository = StateRepository(str(tmp_path / "state.db"))
-    request = execution()
-    repository.begin_execution(request, "a" * 64)
-    repository.complete_step(request.steps[0].step_id, StepState.SUCCEEDED, {})
-    repository.record_compensation(
-        request.request_id,
-        request.steps[0].step_id,
-        Operation.UPDATE.value,
-        "failed",
-        error_code="compensation_timeout",
-        retry_delay_seconds=0,
-    )
-    assert repository.due_compensation_request_ids() == []
-    repository.mark_cancelled(request.request_id)
-    assert repository.due_compensation_request_ids() == [request.request_id]
-
-
-def test_activation_blocks_incomplete_latest_mandatory_step(tmp_path):
-    repository = StateRepository(str(tmp_path / "state.db"))
-    created = execution()
-    repository.begin_execution(created, "a" * 64)
-    repository.complete_step(created.steps[0].step_id, StepState.SUCCEEDED, {})
-    repository.record_verification(
-        created.employee_id,
-        created.steps[0].target_system.value,
-        created.steps[0].step_id,
-        "evidence-created",
-    )
-    update = execution(
-        request_id="request-00000002",
-        key="idempotency-key-00000002",
-        operation=Operation.UPDATE,
-    )
-    repository.begin_execution(update, "b" * 64)
-    assert "odoo:provisioning_incomplete" in repository.activation_blockers(
-        created.employee_id
-    )
-
-
-def test_cancelled_unexecuted_update_does_not_replace_verified_state(tmp_path):
-    repository = StateRepository(str(tmp_path / "state.db"))
-    created = execution()
-    repository.begin_execution(created, "a" * 64)
-    repository.complete_step(created.steps[0].step_id, StepState.SUCCEEDED, {})
-    assert repository.record_verification(
-        created.employee_id,
-        TargetSystem.ODOO.value,
-        created.steps[0].step_id,
-        "created-evidence",
-    )
-    cancelled_update = execution(
-        request_id="cancelled-update-0001",
-        employee_id=created.employee_id,
-        key="cancelled-update-key",
-        operation=Operation.UPDATE,
-    )
-    repository.begin_execution(cancelled_update, "b" * 64)
-    assert repository.cancel_pending(cancelled_update.request_id) == 1
-    assert repository.activation_blockers(created.employee_id) == []
-
-
-def test_old_verification_cannot_replace_newer_evidence(tmp_path):
-    repository = StateRepository(str(tmp_path / "state.db"))
-    created = execution()
-    repository.begin_execution(created, "a" * 64)
-    repository.complete_step(created.steps[0].step_id, StepState.SUCCEEDED, {})
-    update = execution(
-        request_id="request-00000002",
-        key="idempotency-key-00000002",
-        operation=Operation.UPDATE,
-    )
-    repository.begin_execution(update, "b" * 64)
-    repository.complete_step(update.steps[0].step_id, StepState.SUCCEEDED, {})
-    assert repository.record_verification(
-        update.employee_id,
-        update.steps[0].target_system.value,
-        update.steps[0].step_id,
-        "new-evidence",
-    )
-    assert not repository.record_verification(
-        created.employee_id,
-        created.steps[0].target_system.value,
-        created.steps[0].step_id,
-        "old-evidence",
-    )
-    record = repository._connection.execute(
-        "SELECT source_step_id,evidence_hash FROM verification_records"
-    ).fetchone()
-    assert record["source_step_id"] == update.steps[0].step_id
-    assert record["evidence_hash"] == "new-evidence"
+    assert session["state"] == "active"
+    assert repository.active_sip_browser_session("employee-expired") is None
+    assert repository.sip_browser_session(session["session_id"])["state"] == "expired"

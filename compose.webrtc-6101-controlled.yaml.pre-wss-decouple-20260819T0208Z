@@ -1,0 +1,9 @@
+services:
+  provisioning-service:
+    image: codestra/provisioning-service:webrtc-6101-final
+    environment:
+      SIP_BROWSER_ENDPOINT: "6101"
+      SIP_BROWSER_CAMPAIGN: TEST_SYN
+      SIP_BROWSER_DOMAIN: dialer.codestra.agency
+      SIP_BROWSER_WSS_URL: wss://dialer.codestra.agency:8089/ws
+      SIP_BROWSER_TURN_URL: turns:dialer.codestra.agency:5349?transport=tcp

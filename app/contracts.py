@@ -12,7 +12,6 @@ class TargetSystem(StrEnum):
     SIP = "sip"
     AGENT_DESKTOP = "agent_desktop"
     EMAIL_PROVIDER = "email_provider"
-    N8N_EVENT = "n8n_event"
     SECRET_STORAGE = "secret_storage"
     VERIFICATION = "verification"
     RECONCILIATION = "reconciliation"
@@ -91,7 +90,6 @@ class StepCommand(RequestEnvelope):
     step_id: str = Field(min_length=8, max_length=128)
     sequence: int = Field(ge=0, le=100)
     max_attempts: int = Field(default=3, ge=1, le=8)
-    mandatory: bool = True
 
     @model_validator(mode="after")
     def no_inline_secrets(self):

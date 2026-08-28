@@ -18,7 +18,7 @@ def sanitize(value: Any, key: str = "") -> Any:
         return "[REDACTED]"
     if isinstance(value, dict):
         return {str(k): sanitize(v, str(k)) for k, v in value.items()}
-    if isinstance(value, list | tuple):
+    if isinstance(value, (list, tuple)):
         return [sanitize(item) for item in value]
     if isinstance(value, BaseException):
         return {"type": type(value).__name__, "message": "[REDACTED_EXCEPTION]"}

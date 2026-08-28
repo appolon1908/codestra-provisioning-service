@@ -1,0 +1,6 @@
+[
+  {
+    "source_path": "/opt/codestra/provisioning-service/compose.yaml",
+    "snapshot_path": "server-baseline/deployment/01-compose.yaml"
+  }
+]

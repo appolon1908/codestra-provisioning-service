@@ -1,0 +1,15 @@
+services:
+  secrets-init:
+    image: codestra/provisioning-service@sha256:2ce593371c26db217fa38be8cdbe08ef1798c2973b271e1639b57fb47636d5bf
+  provisioning-service:
+    image: codestra/provisioning-service@sha256:2ce593371c26db217fa38be8cdbe08ef1798c2973b271e1639b57fb47636d5bf
+    environment:
+      JWT_ISSUER: https://auth.codestra.co/realms/codestra
+      JWT_AUDIENCE: codestra-provisioning-service
+      JWT_JWKS_URL: https://auth.codestra.co/realms/codestra/protocol/openid-connect/certs
+      JWT_EXPECTED_AZP: codestra-provisioning-service-staging
+      JWT_ALLOWED_CLIENTS: codestra-provisioning-service-staging
+      JWT_REQUIRED_SCOPES: identity:rotate provisioning:execute provisioning:read
+      JWT_MAX_TOKEN_TTL_SECONDS: "300"
+      SIP_BROWSER_ENDPOINT: "6101"
+      SIP_BROWSER_CAMPAIGN: TEST_SYN

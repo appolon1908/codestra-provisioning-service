@@ -2,8 +2,8 @@ import httpx
 import pytest
 
 from app.adapters import (
-    CompanyMailboxProvider,
     DeterministicMailboxMockAdapter,
+    CompanyMailboxProvider,
     EmailProviderAdapter,
     HttpAdapter,
     PermanentAdapterError,
@@ -29,7 +29,6 @@ def test_adapter_contract_has_all_lifecycle_operations():
         "reconcile",
     }
     assert required <= set(ProvisioningAdapter.__abstractmethods__)
-    assert TargetSystem.N8N_EVENT.value == "n8n_event"
 
 
 def test_mailbox_provider_contract_has_all_required_operations():
@@ -275,5 +274,4 @@ async def test_deterministic_mailbox_mock_is_durable_and_delivery_free(tmp_path)
     reconciled = await adapter.reconcile(
         command.model_copy(update={"operation": Operation.RECONCILE})
     )
-    assert reconciled["state"] == "aligned"
-    assert reconciled["actual_state"] == "suspended"
+    assert reconciled["state"] == "suspended"
