@@ -36,7 +36,12 @@ jobs:
         run: git diff --check "${{ github.event.pull_request.base.sha }}...HEAD"
         if: github.event_name == 'pull_request'
       - name: Build immutable candidate
-        run: docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --label org.opencontainers.image.source="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" -t codestra/provisioning-service:"$GITHUB_SHA" .
+        run: |
+          docker build \
+            --build-arg VCS_REF="$GITHUB_SHA" \
+            --build-arg SOURCE_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --build-arg VERSION="$GITHUB_SHA" \
+            -t codestra/provisioning-service:"$GITHUB_SHA" .
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
