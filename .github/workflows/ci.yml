@@ -79,6 +79,7 @@ jobs:
           build-args: |
             VCS_REF=${{ github.sha }}
             SOURCE_URL=${{ github.server_url }}/${{ github.repository }}
+            VERSION=${{ github.sha }}
       - run: echo "Immutable image digest ${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3

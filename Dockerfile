@@ -13,8 +13,10 @@ FROM ${PYTHON_RUNTIME}
 
 ARG VCS_REF=unreleased
 ARG SOURCE_URL=https://github.com/appolon1908-hue/codestra-provisioning-service
+ARG VERSION=unreleased
 LABEL org.opencontainers.image.revision=$VCS_REF \
       org.opencontainers.image.source=$SOURCE_URL \
+      org.opencontainers.image.version=$VERSION \
       io.codestra.python.base.repository="cgr.dev/chainguard/python" \
       io.codestra.python.base.digest="sha256:1f6779775c9f466890da563e411cb677045a6c20b6a65160eefad1deffb5012c"
 
