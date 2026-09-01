@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-image=${PROVISIONING_IMAGE:-ghcr.io/appolon1908-hue/codestra-provisioning-service@sha256:19d5fd3520c820ecb596e6ae4168cecdacbf5e1fb1ef2d7adbf6b7df0b495a61}
+canonical_image=ghcr.io/appolon1908-hue/codestra-provisioning-service@sha256:83669077e8b0c45a19c13cf688d4093cd639dadbb02f2bb3c3389170821d70f5
+requested_image=${PROVISIONING_IMAGE:-$canonical_image}
+image=$canonical_image
 secret_dir=${PROVISIONING_SECRET_DIR:-/etc/codestra/secrets/provisioning-service-production}
 compose_file=${PROVISIONING_COMPOSE_FILE:-deploy/compose.production.yaml}
 failures=0
@@ -15,7 +17,14 @@ case "$image" in
   *) fail image_digest_pinned ;;
 esac
 
-if PROVISIONING_IMAGE="$image" docker compose -f "$compose_file" config --quiet; then
+if [ "$requested_image" = "$canonical_image" ]; then
+  pass image_authority_match
+else
+  fail image_authority_match
+fi
+
+if docker compose -f "$compose_file" config --quiet &&
+   [ "$(docker compose -f "$compose_file" config --images | sort -u)" = "$canonical_image" ]; then
   pass compose_validation
 else
   fail compose_validation
