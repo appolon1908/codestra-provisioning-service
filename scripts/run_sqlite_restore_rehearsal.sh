@@ -18,6 +18,7 @@ docker run --rm \
   --name codestra-provisioning-sqlite-restore \
   --network none \
   --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=64m,uid=10001,gid=10001,mode=1777 \
   --cap-drop ALL \
   --security-opt no-new-privileges:true \
   --pids-limit 64 \

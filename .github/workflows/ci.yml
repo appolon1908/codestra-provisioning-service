@@ -39,6 +39,10 @@ jobs:
         run: >-
           grep -Fxq 'ExecStartPre=/usr/bin/install -d -m 0700 -o 10001 -g 10001 /var/backups/codestra/provisioning'
           deploy/systemd/codestra-provisioning-sqlite-backup.service
+      - name: Validate isolated restore temporary filesystem
+        run: >-
+          grep -Fxq '  --tmpfs /tmp:rw,noexec,nosuid,size=64m,uid=10001,gid=10001,mode=1777 \'
+          scripts/run_sqlite_restore_rehearsal.sh
       - run: pip-audit --requirement requirements.txt
       - name: Reject whitespace errors
         run: git diff --check "${{ github.event.pull_request.base.sha }}...HEAD"
