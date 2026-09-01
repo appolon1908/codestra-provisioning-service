@@ -23,5 +23,3 @@ The existing recovery record remains authoritative. This record contains only fi
 | `app/sip_browser.py` | `6751cf18c73449bcd4f126acbae4584aca79330a040dcb42638aade28ca984ca` | `b965b7eb87d02a853dd6a9e136feb01812c20169e8568e22c1d770a130611df6` | DIFFERS |
 
 A future candidate must be built from protected `main`, pass exact-head tests and security gates, and publish an immutable digest, SBOM, provenance, and signature. Only independent behavioral and artifact verification may supersede `UNPROVEN`. This PR does not authorize deployment.
-
-
