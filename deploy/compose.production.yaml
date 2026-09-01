@@ -64,6 +64,9 @@ services:
 networks:
   private:
     internal: true
+    ipam:
+      config:
+        - subnet: 10.254.47.0/28
     labels:
       codestra.environment: PRODUCTION
       codestra.isolation: private-only
