@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "2.0.0",
+  "repository": "appolon1908-hue/codestra-provisioning-service",
+  "classification": "backend-api",
+  "targetBranch": "codex/codestra-orbit-v2-codestra-provisioning-service",
+  "adoptionMode": "contract-only",
+  "domain": null,
+  "domainStatus": "not-applicable",
+  "requirements": {
+    "renderedInterface": false,
+    "sharedHeaderFooter": false,
+    "loginLogoutPages": false,
+    "serviceAuthorization": true,
+    "browserTokenResponseProhibited": true,
+    "domainRegistry": true,
+    "domainProvisioningWorkflow": true,
+    "idempotency": true,
+    "correlationId": true,
+    "audit": true,
+    "rollback": true
+  },
+  "status": "branch-created",
+  "blockers": [
+    "Provisioning actions must require an authorized service identity, tenant and mutation scope, expected version, idempotency key, correlation ID, safe reason, and audit evidence.",
+    "A generated hostname is only a candidate; the service must not mark it active until source ownership, identity client, DNS, TLS, routing, monitoring, and rollback records all pass.",
+    "Prove replay safety, compensation, reconciliation, secret handling, immutable release, observability, and rollback before enabling production mutations."
+  ]
+}
