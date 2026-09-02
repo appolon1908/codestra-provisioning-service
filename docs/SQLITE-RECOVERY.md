@@ -7,23 +7,31 @@ It is not interchangeable with the platform PostgreSQL service.
 
 Run `scripts/sqlite_lifecycle.py backup` at least daily using a dedicated 32-byte
 key from the approved secret store. The command uses SQLite's online backup API,
-runs integrity and quick checks on the snapshot, encrypts it with AES-256-GCM,
-and writes checksum and retention metadata. Copy the encrypted artifact and its
-metadata to the approved off-host repository. Never copy the live database file.
+runs integrity and quick checks on the snapshot, and confines that plaintext to
+the container's dedicated tmpfs. The v2 AES-256-GCM envelope authenticates a
+canonical header containing the exact release SHA, immutable image reference,
+creation time, plaintext checksum, source identity and validation results.
+Ciphertext and metadata are fsynced and atomically published on the backup
+filesystem. Copy the encrypted artifact and its metadata to the approved
+off-host repository. Never copy the live database file.
 
 Alert if the latest successful off-host backup is older than 24 hours. Keep the
 encryption key outside both the application volume and backup failure domain.
 The source-controlled systemd units under `deploy/systemd` schedule daily online
 backups and monthly isolated restore rehearsals. Their environment file must pin
-`PROVISIONING_IMAGE` by registry digest; mutable tags are rejected by the restore
-runner and must not be used for the backup unit.
+`PROVISIONING_IMAGE` by registry digest, set its corresponding 40-character
+`PROVISIONING_RELEASE_SHA`, and define an approved positive
+`PROVISIONING_RECOVERY_MAX_AGE_SECONDS`. Mutable or mismatched identities are
+rejected before any plaintext file is created.
 
 ## Recovery procedure
 
 1. Make readiness fail and stop application writes. Record the incident time.
 2. Preserve the failed database, WAL, and SHM files without modifying them.
-3. Select the newest off-host backup whose encrypted SHA-256 matches its metadata.
-4. Run `restore-verify` into an isolated filesystem. Require `integrity_check=ok`,
+3. Select the newest off-host v2 backup whose sidecar matches its authenticated
+   header and encrypted SHA-256.
+4. Run `restore-verify` into the isolated tmpfs with the exact expected release
+   SHA, image reference and maximum age. Require `integrity_check=ok`,
    `quick_check=ok`, and a non-empty application schema.
 5. Start the approved application image against a disposable copy and verify
    repository initialization plus `/ready`; do not connect callbacks or adapters.
@@ -36,3 +44,13 @@ runner and must not be used for the backup unit.
 
 Never restore over the active database, reuse an expired certificate, discard the
 failed files, or replay workflow records without owner approval.
+
+The v1 envelope lacks authenticated release identity and is not accepted by this
+verifier. Before rollout, retain legacy artifacts under the existing recovery
+policy, deploy the reviewed v2 producer/verifier together, take a new v2 backup,
+and complete an isolated v2 rehearsal. Do not remove legacy retention until that
+evidence exists and the recovery owner approves the transition.
+
+The restore runner sizes both its tmpfs and container memory limit from the
+selected ciphertext, adds a fixed interpreter/SQLite overhead allowance, and
+fails closed above the documented 2 GiB scratch ceiling.
