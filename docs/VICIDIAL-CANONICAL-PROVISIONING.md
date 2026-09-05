@@ -14,7 +14,9 @@ destination, not a substitute backend.
 
 Legacy `/v1/provisioning/create_user_disabled` is not a supported fallback.
 Other VICidial lifecycle operations remain unsupported by this client until a
-separately reviewed canonical route exists. SIP routing is unchanged.
+separately reviewed canonical route exists. SIP retains its existing
+`/v1/provisioning/{operation}` route and legacy timestamp/nonce/body-digest
+signature; the VICIdial v2 migration does not alter browser SIP credentials.
 
 Production configuration must keep `vicidial.enabled=false` until an exact,
 expiring, single-user policy has been installed on Server B and the deployed

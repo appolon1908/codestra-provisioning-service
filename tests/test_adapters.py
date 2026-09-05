@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import json
 
 import httpx
 import pytest
@@ -18,6 +19,34 @@ from app.contracts import Operation, TargetSystem
 from app.repository import StateRepository
 from app.secrets import SecretReferenceError
 from tests.helpers import execution
+
+
+def canonical_vicidial_payload():
+    agent = {
+        "user_id": "COD1001",
+        "full_name": "Synthetic Provisionee",
+        "user_group": "COD_ADMIN",
+        "campaigns": ["COD0001"],
+        "inbound_groups": [],
+        "active": False,
+        "adopt_existing_sha256": None,
+    }
+    plan = hashlib.sha256(json.dumps(
+        agent, sort_keys=True, separators=(",", ":")
+    ).encode()).hexdigest()
+    return {
+        "context": {
+            "correlation_id": "correlation-request-00000001",
+            "actor": "codestra-provisioning",
+            "reason": "Approved disabled synthetic provisioning",
+            "requested_at": "2026-09-05T10:00:00Z",
+        },
+        "agent": agent,
+        "user_level": 9,
+        "authorization_reference": "CHG-20260905-SYNTHETIC-USER",
+        "plan_sha256": plan,
+        "backup_reference": "codestra-vicidial-synthetic.tar.enc",
+    }
 
 
 def test_adapter_contract_has_all_lifecycle_operations():
@@ -223,6 +252,17 @@ async def test_telephony_adapter_signs_request_and_maps_targets(tmp_path):
             assert request.headers["x-request-signature"] == hmac.new(
                 b"synthetic-hmac-value", canonical, hashlib.sha256
             ).hexdigest()
+            assert request.headers["x-signature-version"] == "v2"
+        else:
+            canonical = (
+                f"{request.headers['x-request-timestamp']}\n"
+                f"{request.headers['x-request-nonce']}\n"
+                f"{hashlib.sha256(request.content).hexdigest()}"
+            ).encode()
+            assert request.headers["x-request-signature"] == hmac.new(
+                b"synthetic-hmac-value", canonical, hashlib.sha256
+            ).hexdigest()
+            assert "x-signature-version" not in request.headers
         body = {"status": "complete_disabled", "actual": {
             "user_id": "COD1001", "active": "N"}}
         if request.url.path.endswith("/rotate_sip_secret"):
@@ -243,7 +283,10 @@ async def test_telephony_adapter_signs_request_and_maps_targets(tmp_path):
         httpx.AsyncClient(transport=httpx.MockTransport(endpoint)),
     )
     command = execution().steps[0].model_copy(
-        update={"target_system": "vicidial"}
+        update={
+            "target_system": "vicidial",
+            "payload": canonical_vicidial_payload(),
+        }
     )
     result = await adapter.create_disabled(command)
     assert result["state"] == "complete_disabled"
@@ -272,7 +315,7 @@ async def test_telephony_adapter_signs_request_and_maps_targets(tmp_path):
     )
     temporary = await sip.issue_browser_credential(browser_command)
     assert temporary["temporary_sip_credential"] == "x" * 48
-    assert observed[-1].url.path.endswith("/rotate_sip_secret")
+    assert observed[-1].url.path.endswith("/v1/provisioning/rotate_sip_secret")
     await sip.client.aclose()
 
 
@@ -286,9 +329,43 @@ async def test_vicidial_provisioning_rejects_empty_hmac_credential(tmp_path):
         str(key), str(key), str(key), str(key), "codestra-provisioning",
         "telephony:agent-provision", httpx.AsyncClient(),
     )
-    command = execution().steps[0].model_copy(update={"target_system": "vicidial"})
+    command = execution().steps[0].model_copy(update={
+        "target_system": "vicidial",
+        "payload": canonical_vicidial_payload(),
+    })
     with pytest.raises(SecretReferenceError, match="secret_reference_empty"):
         await adapter.create_disabled(command)
+    await adapter.client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_vicidial_payload_is_checked_before_transport(tmp_path):
+    key = tmp_path / "hmac"
+    key.write_text("synthetic-hmac-value")
+    key.chmod(0o600)
+    called = False
+
+    async def endpoint(request):
+        nonlocal called
+        called = True
+        return httpx.Response(200, json={}, request=request)
+
+    adapter = TelephonyProvisioningAdapter(
+        "vicidial", "https://edge.internal.codestra.agency:8443",
+        str(key), str(key), str(key), str(key), "codestra-provisioning",
+        "telephony:agent-provision",
+        httpx.AsyncClient(transport=httpx.MockTransport(endpoint)),
+    )
+    payload = canonical_vicidial_payload()
+    payload["agent"]["campaigns"] = ["campaign-too-long"]
+    command = execution().steps[0].model_copy(update={
+        "target_system": "vicidial", "payload": payload,
+    })
+    with pytest.raises(
+        PermanentAdapterError, match="vicidial_provisioning_request_invalid"
+    ):
+        await adapter.create_disabled(command)
+    assert called is False
     await adapter.client.aclose()
 
 
