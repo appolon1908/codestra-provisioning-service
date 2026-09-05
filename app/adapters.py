@@ -458,14 +458,7 @@ class TelephonyProvisioningAdapter(ProvisioningAdapter):
 
     operation_map: ClassVar[dict[str, dict[Operation, str]]] = {
         TargetSystem.VICIDIAL.value: {
-            Operation.CREATE_DISABLED: "create_user_disabled",
-            Operation.UPDATE: "update_user",
-            Operation.VERIFY: "verify_user",
-            Operation.ACTIVATE: "activate_user",
-            Operation.SUSPEND: "disable_user",
-            Operation.REACTIVATE: "activate_user",
-            Operation.TERMINATE: "disable_user",
-            Operation.RECONCILE: "reconcile",
+            Operation.CREATE_DISABLED: "agents/provision-disabled",
         },
         TargetSystem.SIP.value: {
             Operation.CREATE_DISABLED: "create_phone_disabled",
@@ -503,6 +496,10 @@ class TelephonyProvisioningAdapter(ProvisioningAdapter):
             raise ValueError("telephony adapter URL must be credential-free HTTPS")
         if system not in self.operation_map:
             raise ValueError("unsupported telephony target")
+        if system == TargetSystem.VICIDIAL.value and required_scope != (
+            "telephony:agent-provision"
+        ):
+            raise ValueError("VICIdial provisioning requires its dedicated scope")
         self.system = system
         self.base_url = base_url.rstrip("/")
         self.hmac_key_file = hmac_key_file
@@ -524,9 +521,13 @@ class TelephonyProvisioningAdapter(ProvisioningAdapter):
         ).encode()
         timestamp = int(time.time())
         nonce = uuid4().hex
-        message = (
-            f"{timestamp}\n{nonce}\n{hashlib.sha256(raw).hexdigest()}".encode()
-        )
+        path = f"/v1/{operation}"
+        scopes = {self.required_scope}
+        message = "\n".join((
+            "v2", "POST", path, self.service_identity,
+            " ".join(sorted(scopes)), str(timestamp), nonce,
+            command.idempotency_key, hashlib.sha256(raw).hexdigest(),
+        )).encode()
         signature = hmac.new(
             read_secret_file(self.hmac_key_file).encode(), message, hashlib.sha256
         ).hexdigest()
@@ -536,6 +537,7 @@ class TelephonyProvisioningAdapter(ProvisioningAdapter):
             "X-Request-Timestamp": str(timestamp),
             "X-Request-Nonce": nonce,
             "X-Request-Signature": signature,
+            "X-Signature-Version": "v2",
             "Idempotency-Key": command.idempotency_key,
             "Content-Type": "application/json",
         }
@@ -554,7 +556,7 @@ class TelephonyProvisioningAdapter(ProvisioningAdapter):
             client = self.client
         try:
             response = await client.post(
-                f"{self.base_url}/v1/provisioning/{operation}",
+                f"{self.base_url}{path}",
                 content=raw,
                 headers=headers,
             )
@@ -591,8 +593,10 @@ class TelephonyProvisioningAdapter(ProvisioningAdapter):
             raise PermanentAdapterError(
                 f"{self.system}_provisioning_invalid_response"
             )
-        external_id = body.get("username") or body.get("extension")
-        state = body.get("state")
+        actual = body.get("actual") if isinstance(body.get("actual"), dict) else {}
+        external_id = (actual.get("user_id") or body.get("username")
+                       or body.get("extension"))
+        state = body.get("state") or body.get("status")
         if operation == "reconcile":
             state = "aligned" if body.get("count") == 0 else "drift_detected"
         elif operation.startswith("verify_"):

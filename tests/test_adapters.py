@@ -1,3 +1,6 @@
+import hashlib
+import hmac
+
 import httpx
 import pytest
 
@@ -13,6 +16,7 @@ from app.adapters import (
 )
 from app.contracts import Operation, TargetSystem
 from app.repository import StateRepository
+from app.secrets import SecretReferenceError
 from tests.helpers import execution
 
 
@@ -201,9 +205,26 @@ async def test_telephony_adapter_signs_request_and_maps_targets(tmp_path):
         assert request.headers["x-service-identity"] == (
             "odoo-provisioning@65.109.65.169"
         )
-        assert request.headers["x-service-scopes"] == "telephony:provision"
+        expected_scope = ("telephony:agent-provision" if
+                          "/v1/agents/provision-disabled" in request.url.path else
+                          "telephony:provision")
+        assert request.headers["x-service-scopes"] == expected_scope
         assert request.headers["x-request-signature"]
-        body = {"username": "synthetic.agent", "state": "disabled"}
+        if "/v1/agents/provision-disabled" in request.url.path:
+            canonical = "\n".join((
+                "v2", "POST", "/v1/agents/provision-disabled",
+                request.headers["x-service-identity"],
+                request.headers["x-service-scopes"],
+                request.headers["x-request-timestamp"],
+                request.headers["x-request-nonce"],
+                request.headers["idempotency-key"],
+                hashlib.sha256(request.content).hexdigest(),
+            )).encode()
+            assert request.headers["x-request-signature"] == hmac.new(
+                b"synthetic-hmac-value", canonical, hashlib.sha256
+            ).hexdigest()
+        body = {"status": "complete_disabled", "actual": {
+            "user_id": "COD1001", "active": "N"}}
         if request.url.path.endswith("/rotate_sip_secret"):
             body = {
                 "extension": 6197,
@@ -215,18 +236,20 @@ async def test_telephony_adapter_signs_request_and_maps_targets(tmp_path):
 
     adapter = TelephonyProvisioningAdapter(
         "vicidial",
-        "https://edge.internal.codestra.agency:8443/vicidial-provisioning",
+        "https://edge.internal.codestra.agency:8443/restricted-vicidial",
         str(key), str(key), str(key), str(key),
         "odoo-provisioning@65.109.65.169",
-        "telephony:provision",
+        "telephony:agent-provision",
         httpx.AsyncClient(transport=httpx.MockTransport(endpoint)),
     )
     command = execution().steps[0].model_copy(
         update={"target_system": "vicidial"}
     )
     result = await adapter.create_disabled(command)
-    assert result["state"] == "disabled"
-    assert observed[0].url.path.endswith("/create_user_disabled")
+    assert result["state"] == "complete_disabled"
+    assert observed[0].url.path.endswith("/v1/agents/provision-disabled")
+    assert observed[0].headers["x-signature-version"] == "v2"
+    assert result["external_id"] == "COD1001"
     await adapter.client.aclose()
 
     sip = TelephonyProvisioningAdapter(
@@ -251,6 +274,22 @@ async def test_telephony_adapter_signs_request_and_maps_targets(tmp_path):
     assert temporary["temporary_sip_credential"] == "x" * 48
     assert observed[-1].url.path.endswith("/rotate_sip_secret")
     await sip.client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_vicidial_provisioning_rejects_empty_hmac_credential(tmp_path):
+    key = tmp_path / "empty-hmac"
+    key.write_text("")
+    key.chmod(0o600)
+    adapter = TelephonyProvisioningAdapter(
+        "vicidial", "https://edge.internal.codestra.agency:8443",
+        str(key), str(key), str(key), str(key), "codestra-provisioning",
+        "telephony:agent-provision", httpx.AsyncClient(),
+    )
+    command = execution().steps[0].model_copy(update={"target_system": "vicidial"})
+    with pytest.raises(SecretReferenceError, match="secret_reference_empty"):
+        await adapter.create_disabled(command)
+    await adapter.client.aclose()
 
 
 @pytest.mark.asyncio
