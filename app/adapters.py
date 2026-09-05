@@ -524,9 +524,12 @@ class TelephonyProvisioningAdapter(ProvisioningAdapter):
         payload = command.payload
         if self.system == TargetSystem.VICIDIAL.value:
             try:
-                payload = VicidialProvisioningPayload.model_validate(
+                canonical = VicidialProvisioningPayload.model_validate(
                     command.payload
-                ).model_dump(mode="json")
+                )
+                if canonical.context.correlation_id != command.correlation_id:
+                    raise ValueError("canonical correlation ID mismatch")
+                payload = canonical.model_dump(mode="json")
             except ValueError as exc:
                 raise PermanentAdapterError(
                     "vicidial_provisioning_request_invalid"

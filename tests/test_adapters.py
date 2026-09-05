@@ -370,6 +370,37 @@ async def test_vicidial_payload_is_checked_before_transport(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_vicidial_payload_rejects_conflicting_correlation_id(tmp_path):
+    key = tmp_path / "hmac"
+    key.write_text("synthetic-hmac-value")
+    key.chmod(0o600)
+    called = False
+
+    async def endpoint(request):
+        nonlocal called
+        called = True
+        return httpx.Response(200, json={}, request=request)
+
+    adapter = TelephonyProvisioningAdapter(
+        "vicidial", "https://edge.internal.codestra.agency:8443",
+        str(key), str(key), str(key), str(key), "codestra-provisioning",
+        "telephony:agent-provision",
+        httpx.AsyncClient(transport=httpx.MockTransport(endpoint)),
+    )
+    payload = canonical_vicidial_payload()
+    payload["context"]["correlation_id"] = "correlation-conflicting-0001"
+    command = execution().steps[0].model_copy(update={
+        "target_system": "vicidial", "payload": payload,
+    })
+    with pytest.raises(
+        PermanentAdapterError, match="vicidial_provisioning_request_invalid"
+    ):
+        await adapter.create_disabled(command)
+    assert called is False
+    await adapter.client.aclose()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("response", [
     {"status": "failed", "actual": {"user_id": "COD1001", "active": "N"}},
     {"status": "complete_disabled", "actual": {
