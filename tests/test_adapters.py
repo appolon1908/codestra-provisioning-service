@@ -370,6 +370,39 @@ async def test_vicidial_payload_is_checked_before_transport(tmp_path):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("response", [
+    {"status": "failed", "actual": {"user_id": "COD1001", "active": "N"}},
+    {"status": "complete_disabled", "actual": {
+        "user_id": "COD1002", "active": "N"}},
+    {"status": "complete_disabled", "actual": {
+        "user_id": "COD1001", "active": "Y"}},
+])
+async def test_vicidial_response_requires_exact_disabled_readback(tmp_path, response):
+    key = tmp_path / "hmac"
+    key.write_text("synthetic-hmac-value")
+    key.chmod(0o600)
+
+    def endpoint(request):
+        return httpx.Response(200, json=response, request=request)
+
+    adapter = TelephonyProvisioningAdapter(
+        "vicidial", "https://edge.internal.codestra.agency:8443",
+        str(key), str(key), str(key), str(key), "codestra-provisioning",
+        "telephony:agent-provision",
+        httpx.AsyncClient(transport=httpx.MockTransport(endpoint)),
+    )
+    command = execution().steps[0].model_copy(update={
+        "target_system": "vicidial",
+        "payload": canonical_vicidial_payload(),
+    })
+    with pytest.raises(
+        PermanentAdapterError, match="vicidial_provisioning_readback_mismatch"
+    ):
+        await adapter.create_disabled(command)
+    await adapter.client.aclose()
+
+
+@pytest.mark.asyncio
 async def test_deterministic_mailbox_mock_is_durable_and_delivery_free(tmp_path):
     repository = StateRepository(str(tmp_path / "state.db"))
     adapter = DeterministicMailboxMockAdapter(repository)
