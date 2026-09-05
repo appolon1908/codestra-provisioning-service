@@ -402,6 +402,9 @@ async def test_vicidial_payload_rejects_conflicting_correlation_id(tmp_path):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("response", [
+    *[{"status": "complete_disabled", "actual": {
+        "user_id": "COD1001", "active": active}}
+      for active in (0, 0.0, True, None, "false", "0")],
     {"status": "failed", "actual": {"user_id": "COD1001", "active": "N"}},
     {"status": "complete_disabled", "actual": {
         "user_id": "COD1002", "active": "N"}},
