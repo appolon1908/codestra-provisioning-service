@@ -619,7 +619,10 @@ class TelephonyProvisioningAdapter(ProvisioningAdapter):
         if self.system == TargetSystem.VICIDIAL.value and (
             body.get("status") != "complete_disabled"
             or actual.get("user_id") != payload["agent"]["user_id"]
-            or actual.get("active") not in (False, "N")
+            or not (
+                actual.get("active") is False
+                or actual.get("active") == "N"
+            )
         ):
             raise PermanentAdapterError(
                 "vicidial_provisioning_readback_mismatch"

@@ -407,6 +407,10 @@ async def test_vicidial_payload_rejects_conflicting_correlation_id(tmp_path):
         "user_id": "COD1002", "active": "N"}},
     {"status": "complete_disabled", "actual": {
         "user_id": "COD1001", "active": "Y"}},
+    {"status": "complete_disabled", "actual": {
+        "user_id": "COD1001", "active": 0}},
+    {"status": "complete_disabled", "actual": {
+        "user_id": "COD1001", "active": 0.0}},
 ])
 async def test_vicidial_response_requires_exact_disabled_readback(tmp_path, response):
     key = tmp_path / "hmac"
