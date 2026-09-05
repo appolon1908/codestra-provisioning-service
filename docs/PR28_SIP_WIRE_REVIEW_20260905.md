@@ -21,7 +21,7 @@ evidence, not an authenticated end-to-end provisioning request.
 Validation used an isolated Python 3.12.14 venv with requirements-dev.txt:
 
 - `ruff check app tests scripts`: PASS.
-- `python -m pytest -q`: 108 passed, two dependency deprecation warnings.
+- `python -m pytest -q`: 110 passed, two dependency deprecation warnings (after adopting PR #28 revision c9b3132347031f77aaf12ac7d7584caf5b6f99f9).
 - Nine SIP lifecycle operations check full prefixed route and legacy HMAC.
 - Browser rotation/renewal helper and revocation tests use the real adapter
   with an HTTP test transport and assert payload, signature, credential handling
