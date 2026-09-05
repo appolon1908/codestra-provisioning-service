@@ -223,6 +223,19 @@ async def test_telephony_adapter_signs_request_and_maps_targets(tmp_path):
             assert request.headers["x-request-signature"] == hmac.new(
                 b"synthetic-hmac-value", canonical, hashlib.sha256
             ).hexdigest()
+        else:
+            assert request.url.path == (
+                "/vicidial-provisioning/v1/provisioning/rotate_sip_secret"
+            )
+            canonical = "\n".join((
+                request.headers["x-request-timestamp"],
+                request.headers["x-request-nonce"],
+                hashlib.sha256(request.content).hexdigest(),
+            )).encode()
+            assert request.headers["x-request-signature"] == hmac.new(
+                b"synthetic-hmac-value", canonical, hashlib.sha256
+            ).hexdigest()
+            assert "x-signature-version" not in request.headers
         body = {"status": "complete_disabled", "actual": {
             "user_id": "COD1001", "active": "N"}}
         if request.url.path.endswith("/rotate_sip_secret"):
@@ -274,6 +287,57 @@ async def test_telephony_adapter_signs_request_and_maps_targets(tmp_path):
     assert temporary["temporary_sip_credential"] == "x" * 48
     assert observed[-1].url.path.endswith("/rotate_sip_secret")
     await sip.client.aclose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("operation", "route"), [
+    (Operation.CREATE_DISABLED, "create_phone_disabled"),
+    (Operation.UPDATE, "update_phone"),
+    (Operation.VERIFY, "verify_phone"),
+    (Operation.ACTIVATE, "activate_phone"),
+    (Operation.SUSPEND, "disable_phone"),
+    (Operation.REACTIVATE, "activate_phone"),
+    (Operation.TERMINATE, "revoke_sip_secret"),
+    (Operation.ROTATE_CREDENTIALS, "rotate_sip_secret"),
+    (Operation.RECONCILE, "reconcile"),
+])
+async def test_sip_lifecycle_preserves_deployed_wire_contract(tmp_path, operation, route):
+    key = tmp_path / "hmac"
+    key.write_text("synthetic-hmac-value")
+    key.chmod(0o600)
+    observed = []
+
+    async def legacy_server(request):
+        observed.append(request)
+        assert request.method == "POST"
+        assert request.url.path == f"/vicidial-provisioning/v1/provisioning/{route}"
+        assert request.headers["x-service-scopes"] == "telephony:provision"
+        assert "x-signature-version" not in request.headers
+        canonical = "\n".join((
+            request.headers["x-request-timestamp"],
+            request.headers["x-request-nonce"],
+            hashlib.sha256(request.content).hexdigest(),
+        )).encode()
+        assert request.headers["x-request-signature"] == hmac.new(
+            b"synthetic-hmac-value", canonical, hashlib.sha256
+        ).hexdigest()
+        return httpx.Response(200, json={
+            "extension": 6197, "status": "complete_disabled", "present": True, "count": 0,
+        })
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(legacy_server)) as client:
+        adapter = TelephonyProvisioningAdapter(
+            "sip", "https://edge.example.invalid/vicidial-provisioning",
+            str(key), str(key), str(key), str(key), "synthetic-provisioning",
+            "telephony:provision", client,
+        )
+        command = execution().steps[0].model_copy(update={
+            "target_system": "sip", "operation": operation,
+        })
+        result = await adapter.execute(command)
+    assert result["external_id"] == "6197"
+    assert len(observed) == 1
+    assert observed[0].headers["idempotency-key"] == command.idempotency_key
 
 
 @pytest.mark.asyncio

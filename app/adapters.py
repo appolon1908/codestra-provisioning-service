@@ -521,13 +521,20 @@ class TelephonyProvisioningAdapter(ProvisioningAdapter):
         ).encode()
         timestamp = int(time.time())
         nonce = uuid4().hex
-        path = f"/v1/{operation}"
-        scopes = {self.required_scope}
-        message = "\n".join((
-            "v2", "POST", path, self.service_identity,
-            " ".join(sorted(scopes)), str(timestamp), nonce,
-            command.idempotency_key, hashlib.sha256(raw).hexdigest(),
-        )).encode()
+        if self.system == TargetSystem.VICIDIAL.value:
+            path = f"/v1/{operation}"
+            scopes = {self.required_scope}
+            message = "\n".join((
+                "v2", "POST", path, self.service_identity,
+                " ".join(sorted(scopes)), str(timestamp), nonce,
+                command.idempotency_key, hashlib.sha256(raw).hexdigest(),
+            )).encode()
+        else:
+            # SIP retains its deployed route and legacy HMAC contract.
+            path = f"/v1/provisioning/{operation}"
+            message = (
+                f"{timestamp}\n{nonce}\n{hashlib.sha256(raw).hexdigest()}".encode()
+            )
         signature = hmac.new(
             read_secret_file(self.hmac_key_file).encode(), message, hashlib.sha256
         ).hexdigest()
@@ -537,10 +544,11 @@ class TelephonyProvisioningAdapter(ProvisioningAdapter):
             "X-Request-Timestamp": str(timestamp),
             "X-Request-Nonce": nonce,
             "X-Request-Signature": signature,
-            "X-Signature-Version": "v2",
             "Idempotency-Key": command.idempotency_key,
             "Content-Type": "application/json",
         }
+        if self.system == TargetSystem.VICIDIAL.value:
+            headers["X-Signature-Version"] = "v2"
         owned = self.client is None
         if self.client is None:
             tls_context = ssl.create_default_context(cafile=self.ca_file)
