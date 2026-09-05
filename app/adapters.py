@@ -13,7 +13,12 @@ import httpx
 from cryptography.fernet import Fernet
 
 from .config import enabled
-from .contracts import Operation, StepCommand, TargetSystem
+from .contracts import (
+    Operation,
+    StepCommand,
+    TargetSystem,
+    VicidialProvisioningPayload,
+)
 from .repository import IdempotencyConflict, StateRepository
 from .secrets import read_secret_file
 
@@ -516,21 +521,27 @@ class TelephonyProvisioningAdapter(ProvisioningAdapter):
         operation = self.operation_map[self.system].get(command.operation)
         if not operation:
             raise PermanentAdapterError("unsupported_telephony_operation")
-        raw = json.dumps(
-            command.payload, sort_keys=True, separators=(",", ":")
-        ).encode()
+        payload = command.payload
+        if self.system == TargetSystem.VICIDIAL.value:
+            try:
+                payload = VicidialProvisioningPayload.model_validate(
+                    command.payload
+                ).model_dump(mode="json")
+            except ValueError as exc:
+                raise PermanentAdapterError(
+                    "vicidial_provisioning_request_invalid"
+                ) from exc
+        raw = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
         timestamp = int(time.time())
         nonce = uuid4().hex
         if self.system == TargetSystem.VICIDIAL.value:
             path = f"/v1/{operation}"
-            scopes = {self.required_scope}
             message = "\n".join((
                 "v2", "POST", path, self.service_identity,
-                " ".join(sorted(scopes)), str(timestamp), nonce,
+                self.required_scope, str(timestamp), nonce,
                 command.idempotency_key, hashlib.sha256(raw).hexdigest(),
             )).encode()
         else:
-            # SIP retains its deployed route and legacy HMAC contract.
             path = f"/v1/provisioning/{operation}"
             message = (
                 f"{timestamp}\n{nonce}\n{hashlib.sha256(raw).hexdigest()}".encode()

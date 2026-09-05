@@ -1,7 +1,8 @@
 # PR #28 SIP compatibility repair
 
-Prepared from PR #28 head `2d1210cccb4da2947df8a3de733d8ccc69b36fa9` on a
-separate follow-up branch. The coordinated PR branch is not modified by this
+Adopts the coordinated PR #28 implementation at
+`3497b336e80affb4264b147bdab6e0b34f647511` unchanged on a separate follow-up
+branch. This follow-up now adds independent regression tests and evidence only. The coordinated PR branch is not modified by this
 session. Integrate through review, refresh its exact head and renew the required
 review; the approval on the earlier head does not certify this change.
 
@@ -20,7 +21,7 @@ evidence, not an authenticated end-to-end provisioning request.
 Validation used an isolated Python 3.12.14 venv with requirements-dev.txt:
 
 - `ruff check app tests scripts`: PASS.
-- `python -m pytest -q`: 104 passed, two dependency deprecation warnings.
+- `python -m pytest -q`: 105 passed, two dependency deprecation warnings.
 - Nine SIP lifecycle operations check full prefixed route and legacy HMAC.
 - Browser rotation/renewal helper and revocation tests use the real adapter
   with an HTTP test transport and assert payload, signature, credential handling
