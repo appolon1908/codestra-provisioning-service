@@ -6,6 +6,7 @@ Requires=docker.service
 [Service]
 Type=oneshot
 EnvironmentFile=/etc/codestra/provisioning-sqlite-backup.env
+ExecStartPre=/usr/bin/install -d -m 0700 -o 10001 -g 10001 /var/backups/codestra/provisioning
 ExecStart=/usr/bin/docker run --rm --name codestra-provisioning-sqlite-backup --network none --read-only --cap-drop ALL --security-opt no-new-privileges:true --pids-limit 64 --memory 256m --cpus 0.5 --entrypoint /opt/venv/bin/python -v codestra-provisioning-production_state:/state:ro -v /etc/codestra/secrets/provisioning-service-production/sqlite_backup_key:/run/secrets/sqlite_backup_key:ro -v /var/backups/codestra/provisioning:/backups:rw ${PROVISIONING_IMAGE} /app/scripts/sqlite_lifecycle.py backup --database /state/provisioning.db --destination /backups --key-file /run/secrets/sqlite_backup_key --retention-days 30
 TimeoutStartSec=15m
 UMask=0077
