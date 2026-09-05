@@ -613,6 +613,14 @@ class TelephonyProvisioningAdapter(ProvisioningAdapter):
                 f"{self.system}_provisioning_invalid_response"
             )
         actual = body.get("actual") if isinstance(body.get("actual"), dict) else {}
+        if self.system == TargetSystem.VICIDIAL.value and (
+            body.get("status") != "complete_disabled"
+            or actual.get("user_id") != payload["agent"]["user_id"]
+            or actual.get("active") not in (False, "N")
+        ):
+            raise PermanentAdapterError(
+                "vicidial_provisioning_readback_mismatch"
+            )
         external_id = (actual.get("user_id") or body.get("username")
                        or body.get("extension"))
         state = body.get("state") or body.get("status")
