@@ -1,7 +1,11 @@
+import hashlib
+import hmac
+import json
 import uuid
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
+import httpx
 import pytest
 from pydantic import ValidationError
 
@@ -209,3 +213,57 @@ def test_renew_after_expiration_is_a_controlled_conflict_not_500():
     with pytest.raises(SipBrowserSessionError, match="not_active"):
         service._active(action)
     assert repository.expired
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("include_temporary", [True, False])
+async def test_browser_rotation_and_revocation_keep_sip_wire_contract(
+    tmp_path, include_temporary,
+):
+    key = tmp_path / "synthetic-hmac"
+    key.write_text("synthetic-hmac-value")
+    key.chmod(0o600)
+    binding = "00000000-0000-4000-8000-000000000001"
+    requests = []
+
+    async def legacy_server(request):
+        requests.append(request)
+        assert request.url.path == (
+            "/vicidial-provisioning/v1/provisioning/rotate_sip_secret"
+        )
+        assert "x-signature-version" not in request.headers
+        body = json.loads(request.content)
+        if include_temporary:
+            assert body["browser_session_binding"] == binding
+            assert "browser_session_revocation" not in body
+        else:
+            assert body["browser_session_revocation"] is True
+            assert "browser_session_binding" not in body
+        message = "\n".join((
+            request.headers["x-request-timestamp"],
+            request.headers["x-request-nonce"],
+            hashlib.sha256(request.content).hexdigest(),
+        )).encode()
+        assert request.headers["x-request-signature"] == hmac.new(
+            b"synthetic-hmac-value", message, hashlib.sha256
+        ).hexdigest()
+        response = {"extension": 6101, "rotated": True}
+        if include_temporary:
+            response.update(temporary_sip_credential="x" * 48, expires_in_seconds=300)
+        return httpx.Response(200, json=response)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(legacy_server)) as client:
+        adapter = TelephonyProvisioningAdapter(
+            "sip", "https://edge.example.invalid/vicidial-provisioning",
+            str(key), str(key), str(key), str(key), "synthetic-provisioning",
+            "telephony:provision", client,
+        )
+        service = SipBrowserSessionManager(FakeRepository(), {"sip": adapter}, str(key))
+        command = execution().steps[0].model_copy(update={"target_system": "sip"})
+        # create() and renew() both use the temporary path; revoke() uses false.
+        first = await service._rotate(command, binding, include_temporary)
+        second = await service._rotate(command, binding, include_temporary)
+    assert ("temporary_sip_credential" in first) is include_temporary
+    assert ("temporary_sip_credential" in second) is include_temporary
+    assert len(requests) == 2
+    assert requests[0].headers["idempotency-key"] != requests[1].headers["idempotency-key"]
