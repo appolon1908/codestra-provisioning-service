@@ -11,5 +11,6 @@ for gate in (
     "RECONCILIATION_GATE",
     "SECRET_STORAGE_GATE",
     "RESTART_RECOVERY_GATE",
+    "MIDDLEWARE_INVOCATION_REQUIRED_GATE",
 ):
     os.environ[gate] = "true"

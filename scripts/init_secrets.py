@@ -20,6 +20,7 @@ EXPECTED = {
     "telephony_client.key",
     "telephony_ca.crt",
     "turn_shared_secret",
+    "middleware_invocation_hmac_secret",
 }
 
 
