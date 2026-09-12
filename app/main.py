@@ -28,7 +28,12 @@ from .engine import EngineError, ProvisioningEngine
 from .logging import configure_logging
 from .readiness import DependencyReadiness
 from .repository import StateRepository
-from .security import JWTAuthorizer, Principal, require_scope
+from .security import (
+    JWTAuthorizer,
+    Principal,
+    require_middleware_invocation,
+    require_scope,
+)
 from .sip_browser import SipBrowserSessionError, SipBrowserSessionManager
 
 configure_logging()
@@ -66,6 +71,7 @@ def create_app(
     except RuntimeError:
         sip_browser = None
     authorizer = JWTAuthorizer(configured, state)
+    middleware_invocation = require_middleware_invocation(configured, state)
     dependency_readiness = readiness_checker or DependencyReadiness(configured)
     disabled_adapters = sorted(
         name for name, adapter in loaded_adapters.items() if isinstance(adapter, DisabledAdapter)
@@ -325,6 +331,7 @@ def create_app(
         request_id: str,
         execution: RequestExecution,
         principal: Principal = Depends(execute_auth),  # noqa: B008
+        _invocation: None = Depends(middleware_invocation),
     ):
         del principal
         return await engine.submit(request_id, execution)
@@ -337,6 +344,7 @@ def create_app(
         request_id: str,
         action: ActionRequest,
         principal: Principal = Depends(retry_auth),  # noqa: B008
+        _invocation: None = Depends(middleware_invocation),
     ):
         del principal
         return await engine.retry(request_id, action)
@@ -349,6 +357,7 @@ def create_app(
         request_id: str,
         action: ActionRequest,
         principal: Principal = Depends(verify_auth),  # noqa: B008
+        _invocation: None = Depends(middleware_invocation),
     ):
         del principal
         return await engine.verify(request_id, action)
@@ -361,6 +370,7 @@ def create_app(
         request_id: str,
         action: ActionRequest,
         principal: Principal = Depends(cancel_auth),  # noqa: B008
+        _invocation: None = Depends(middleware_invocation),
     ):
         del principal
         return await engine.cancel(request_id, action)
@@ -389,6 +399,7 @@ def create_app(
             employee_id: str,
             execution: RequestExecution,
             principal: Principal = Depends(scope_dependency),  # noqa: B008
+            _invocation: None = Depends(middleware_invocation),
         ):
             del principal
             return await engine.lifecycle(employee_id, operation, execution)
@@ -432,6 +443,7 @@ def create_app(
     async def create_sip_browser_session(
         session_request: SipBrowserSessionRequest,
         principal: Principal = Depends(execute_auth),  # noqa: B008
+        _invocation: None = Depends(middleware_invocation),
     ):
         del principal
         if sip_browser is None:
@@ -445,6 +457,7 @@ def create_app(
     async def renew_sip_browser_session(
         action: SipBrowserSessionAction,
         principal: Principal = Depends(rotate_auth),  # noqa: B008
+        _invocation: None = Depends(middleware_invocation),
     ):
         del principal
         if sip_browser is None:
@@ -470,6 +483,7 @@ def create_app(
     async def revoke_sip_browser_session(
         action: SipBrowserSessionAction,
         principal: Principal = Depends(rotate_auth),  # noqa: B008
+        _invocation: None = Depends(middleware_invocation),
     ):
         del principal
         if sip_browser is None:
