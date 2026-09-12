@@ -24,6 +24,7 @@ GATES = (
     "RECONCILIATION_GATE",
     "SECRET_STORAGE_GATE",
     "RESTART_RECOVERY_GATE",
+    "MIDDLEWARE_INVOCATION_REQUIRED_GATE",
 )
 
 
@@ -56,6 +57,10 @@ class Settings:
     turn_shared_secret_file: str = (
         "/run/provisioning-secrets/turn_shared_secret"  # noqa: S105
     )
+    middleware_invocation_hmac_file: str = (
+        "/run/provisioning-secrets/middleware_invocation_hmac_secret"
+    )
+    middleware_invocation_max_skew_seconds: int = 60
     jwt_jwks_url: str = ""
     jwt_expected_azp: str = MACHINE_CLIENT_ID
     jwt_required_scopes: frozenset[str] = MACHINE_SCOPES
@@ -121,6 +126,13 @@ class Settings:
             turn_shared_secret_file=os.getenv(
                 "TURN_SHARED_SECRET_FILE",
                 "/run/provisioning-secrets/turn_shared_secret",
+            ),
+            middleware_invocation_hmac_file=os.getenv(
+                "MIDDLEWARE_INVOCATION_HMAC_SECRET_FILE",
+                "/run/provisioning-secrets/middleware_invocation_hmac_secret",
+            ),
+            middleware_invocation_max_skew_seconds=int(
+                os.getenv("MIDDLEWARE_INVOCATION_MAX_SKEW_SECONDS", "60")
             ),
             encryption_key_file=os.getenv(
                 "CREDENTIAL_ENCRYPTION_KEY_FILE",
@@ -202,6 +214,7 @@ class Settings:
             ("tls_cert", self.tls_cert_file),
             ("tls_key", self.tls_key_file),
             ("turn_shared_secret", self.turn_shared_secret_file),
+            ("middleware_invocation_hmac", self.middleware_invocation_hmac_file),
         ):
             candidate = Path(path)
             if not candidate.is_file():
