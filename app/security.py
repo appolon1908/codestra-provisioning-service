@@ -1,5 +1,7 @@
 import asyncio
 import hashlib
+import hmac
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -120,3 +122,76 @@ def require_scope(authorizer: JWTAuthorizer, required: str):
         return principal
 
     return dependency
+
+
+class MiddlewareInvocationError(HTTPException):
+    def __init__(self, status_code: int, code: str):
+        super().__init__(status_code=status_code, detail=code)
+
+
+def require_middleware_invocation(settings: Settings, repository: StateRepository):
+    """Attests that a mutating request was orchestrated by Middleware's
+    agent-provisioning saga, not issued directly against this service.
+
+    This service executes provisioning steps; it must not be an
+    independently-triggerable second authority. A caller presenting a
+    correctly-scoped JWT (see JWTAuthorizer) is necessary but not
+    sufficient for mutating routes -- it must also present an
+    HMAC-signed attestation over the exact request body, using a secret
+    shared only with Middleware, following the same
+    timestamp-then-signature convention already used for outbound Odoo
+    callbacks (see callbacks.py).
+    """
+
+    async def verify_middleware_invocation(request: Request) -> None:
+        if not enabled("MIDDLEWARE_INVOCATION_REQUIRED_GATE"):
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "middleware_invocation_gate_closed",
+            )
+        timestamp = request.headers.get("x-middleware-timestamp")
+        signature = request.headers.get("x-middleware-signature")
+        if not timestamp or not signature:
+            raise HTTPException(
+                status.HTTP_401_UNAUTHORIZED, "middleware_invocation_missing"
+            )
+        try:
+            timestamp_value = int(timestamp)
+        except ValueError as exc:
+            raise HTTPException(
+                status.HTTP_401_UNAUTHORIZED, "middleware_invocation_timestamp_invalid"
+            ) from exc
+        skew = abs(int(time.time()) - timestamp_value)
+        if skew > settings.middleware_invocation_max_skew_seconds:
+            raise HTTPException(
+                status.HTTP_401_UNAUTHORIZED, "middleware_invocation_stale"
+            )
+        from .secrets import SecretReferenceError, read_secret_file
+
+        try:
+            secret = read_secret_file(settings.middleware_invocation_hmac_file)
+        except SecretReferenceError as exc:
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "middleware_invocation_secret_unavailable",
+            ) from exc
+        body = await request.body()
+        expected = hmac.new(
+            secret.encode(),
+            timestamp.encode() + b"." + body,
+            hashlib.sha256,
+        ).hexdigest()
+        prefix = "sha256="
+        if not signature.startswith(prefix) or not hmac.compare_digest(
+            signature[len(prefix):], expected
+        ):
+            raise HTTPException(
+                status.HTTP_401_UNAUTHORIZED, "middleware_invocation_signature_invalid"
+            )
+        replay_expiry = timestamp_value + settings.middleware_invocation_max_skew_seconds
+        if not repository.accept_jti(f"mw-invocation:{signature}", replay_expiry):
+            raise HTTPException(
+                status.HTTP_409_CONFLICT, "middleware_invocation_replayed"
+            )
+
+    return verify_middleware_invocation
