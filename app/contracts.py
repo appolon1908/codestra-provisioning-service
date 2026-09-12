@@ -1,6 +1,9 @@
+import hashlib
+import json
+import re
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -102,6 +105,67 @@ class StepCommand(RequestEnvelope):
         found -= reference_keys
         if found:
             raise ValueError("credential values are forbidden; use protected references")
+        return self
+
+
+class VicidialProvisioningContext(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    correlation_id: str = Field(min_length=8, max_length=128)
+    actor: str = Field(min_length=3, max_length=128)
+    reason: str = Field(min_length=8, max_length=500)
+    requested_at: datetime
+
+
+class VicidialAgentSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    user_id: str = Field(pattern=r"^[A-Z]{3}[0-9]{4,12}$")
+    full_name: str = Field(min_length=2, max_length=50)
+    user_group: str = Field(pattern=r"^[A-Z0-9_]{2,20}$")
+    campaigns: list[str] = Field(min_length=1, max_length=30)
+    inbound_groups: list[str] = Field(default_factory=list, max_length=30)
+    active: Literal[False] = False
+    adopt_existing_sha256: Annotated[
+        str, Field(pattern=r"^[a-f0-9]{64}$")
+    ] | None = None
+
+    @field_validator("campaigns")
+    @classmethod
+    def valid_campaigns(cls, values: list[str]) -> list[str]:
+        if any(re.fullmatch(r"[A-Z0-9_]{2,8}", value) is None for value in values):
+            raise ValueError("invalid VICIdial campaign")
+        return values
+
+    @field_validator("inbound_groups")
+    @classmethod
+    def valid_inbound_groups(cls, values: list[str]) -> list[str]:
+        if any(re.fullmatch(r"[A-Z0-9_]{2,20}", value) is None for value in values):
+            raise ValueError("invalid VICIdial inbound group")
+        return values
+
+
+class VicidialProvisioningPayload(BaseModel):
+    """Client copy of the canonical disabled-agent request boundary."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    context: VicidialProvisioningContext
+    agent: VicidialAgentSpec
+    user_level: Literal[9]
+    authorization_reference: str = Field(pattern=r"^CHG-[A-Z0-9-]{10,80}$")
+    plan_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    backup_reference: str = Field(pattern=r"^[A-Za-z0-9._:/-]{8,255}$")
+
+    @model_validator(mode="after")
+    def plan_matches_agent(self):
+        encoded = json.dumps(
+            self.agent.model_dump(mode="json"),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+        if hashlib.sha256(encoded).hexdigest() != self.plan_sha256:
+            raise ValueError("VICIdial plan hash does not match agent")
         return self
 
 
