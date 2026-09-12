@@ -28,6 +28,11 @@ services:
     environment:
       IDENTITY_UPSTREAM_IP: ${IDENTITY_UPSTREAM_IP:?approved canonical identity ingress IP required}
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('127.0.0.1',443),5); s.close()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     networks:
       identity:
         aliases: [auth.codestra.co]

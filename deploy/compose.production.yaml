@@ -2,7 +2,7 @@ name: codestra-provisioning-production
 
 services:
   secrets-init:
-    image: ${PROVISIONING_IMAGE:?immutable provisioning image digest is required}
+    image: ghcr.io/appolon1908-hue/codestra-provisioning-service@sha256:83669077e8b0c45a19c13cf688d4093cd639dadbb02f2bb3c3389170821d70f5
     user: "0:0"
     entrypoint: ["/opt/venv/bin/python", "/app/scripts/init_secrets.py"]
     restart: "no"
@@ -17,7 +17,7 @@ services:
     cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
 
   provisioning-service:
-    image: ${PROVISIONING_IMAGE:?immutable provisioning image digest is required}
+    image: ghcr.io/appolon1908-hue/codestra-provisioning-service@sha256:83669077e8b0c45a19c13cf688d4093cd639dadbb02f2bb3c3389170821d70f5
     restart: unless-stopped
     env_file:
       - path: /etc/codestra/secrets/provisioning-service-production/service.env
@@ -36,7 +36,7 @@ services:
       telephony: {}
     expose: ["8443"]
     read_only: true
-    tmpfs: [/tmp:size=16m,mode=1777]
+    tmpfs: ["/tmp:size=16m,mode=1777"]
     user: "10001:10001"
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
@@ -64,6 +64,9 @@ services:
 networks:
   private:
     internal: true
+    ipam:
+      config:
+        - subnet: 10.254.47.0/28
     labels:
       codestra.environment: PRODUCTION
       codestra.isolation: private-only

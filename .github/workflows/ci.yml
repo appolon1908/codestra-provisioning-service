@@ -31,12 +31,30 @@ jobs:
       - run: ruff check app tests scripts
       - run: python -m compileall -q app tests scripts
       - run: pytest -q
+      - name: Validate production Compose runtime mounts
+        run: |
+          docker compose -f deploy/compose.production.yaml config --format json |
+            python -c 'import json,sys; c=json.load(sys.stdin); assert c["services"]["provisioning-service"]["tmpfs"] == ["/tmp:size=16m,mode=1777"]'
+      - name: Validate backup directory ownership contract
+        run: >-
+          grep -Fxq 'ExecStartPre=/usr/bin/install -d -m 0700 -o 10001 -g 10001 /var/backups/codestra/provisioning'
+          deploy/systemd/codestra-provisioning-sqlite-backup.service
+      - name: Validate isolated restore temporary filesystem
+        run: |
+          grep -Fq 'scratch_bytes=$((backup_bytes * 4))' scripts/run_sqlite_restore_rehearsal.sh
+          grep -Fq 'maximum_scratch=$((2 * 1024 * 1024 * 1024))' scripts/run_sqlite_restore_rehearsal.sh
+          grep -Fq 'size=${scratch_bytes},uid=10001,gid=10001,mode=1777' scripts/run_sqlite_restore_rehearsal.sh
       - run: pip-audit --requirement requirements.txt
       - name: Reject whitespace errors
         run: git diff --check "${{ github.event.pull_request.base.sha }}...HEAD"
         if: github.event_name == 'pull_request'
       - name: Build immutable candidate
-        run: docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --label org.opencontainers.image.source="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" -t codestra/provisioning-service:"$GITHUB_SHA" .
+        run: |
+          docker build \
+            --build-arg VCS_REF="$GITHUB_SHA" \
+            --build-arg SOURCE_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --build-arg VERSION="$GITHUB_SHA" \
+            -t codestra/provisioning-service:"$GITHUB_SHA" .
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -79,6 +97,7 @@ jobs:
           build-args: |
             VCS_REF=${{ github.sha }}
             SOURCE_URL=${{ github.server_url }}/${{ github.repository }}
+            VERSION=${{ github.sha }}
       - run: echo "Immutable image digest ${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3
