@@ -9,10 +9,14 @@ latest=$(find "$backup_root" -maxdepth 1 -type f -name 'provisioning-*.sqlite3.a
 test -n "$latest"
 test -f "$latest.json"
 test -n "${PROVISIONING_IMAGE:-}"
+test -n "${PROVISIONING_RELEASE_SHA:-}"
+test -n "${PROVISIONING_RECOVERY_MAX_AGE_SECONDS:-}"
 case "$PROVISIONING_IMAGE" in
   *@sha256:*) ;;
   *) echo "immutable PROVISIONING_IMAGE digest required" >&2; exit 2 ;;
 esac
+[[ "$PROVISIONING_RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "immutable PROVISIONING_RELEASE_SHA required" >&2; exit 2; }
+[[ "$PROVISIONING_RECOVERY_MAX_AGE_SECONDS" =~ ^[1-9][0-9]*$ ]] || { echo "positive recovery age limit required" >&2; exit 2; }
 
 # AES-GCM ciphertext is close to the SQLite snapshot size, while the restore
 # needs room for both decrypted bytes and SQLite integrity-check scratch data.
@@ -27,6 +31,8 @@ if (( scratch_bytes > maximum_scratch )); then
   echo "restore scratch requirement exceeds 2 GiB safety ceiling" >&2
   exit 3
 fi
+runtime_overhead=$((256 * 1024 * 1024))
+memory_bytes=$((scratch_bytes + runtime_overhead))
 
 docker run --rm \
   --name codestra-provisioning-sqlite-restore \
@@ -36,7 +42,7 @@ docker run --rm \
   --cap-drop ALL \
   --security-opt no-new-privileges:true \
   --pids-limit 64 \
-  --memory 256m \
+  --memory "${memory_bytes}b" \
   --cpus 0.5 \
   --entrypoint /opt/venv/bin/python \
   -v "$backup_root:/backups:rw" \
@@ -44,4 +50,8 @@ docker run --rm \
   "$PROVISIONING_IMAGE" \
   /app/scripts/sqlite_lifecycle.py restore-verify \
   --backup "/backups/${latest##*/}" \
-  --key-file /run/secrets/sqlite_backup_key
+  --key-file /run/secrets/sqlite_backup_key \
+  --temporary-directory /tmp \
+  --expected-release-sha "$PROVISIONING_RELEASE_SHA" \
+  --expected-image-reference "$PROVISIONING_IMAGE" \
+  --max-age-seconds "$PROVISIONING_RECOVERY_MAX_AGE_SECONDS"
