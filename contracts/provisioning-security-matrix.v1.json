@@ -1,0 +1,149 @@
+{
+  "identity_authority": "Keycloak",
+  "metrics": {
+    "included_in_openapi": false,
+    "path": "/metrics",
+    "public": false
+  },
+  "middleware_command_authority": "Middleware /platform/v1",
+  "operations": [
+    {
+      "classification": "read",
+      "method": "GET",
+      "middleware_invocation": false,
+      "operation_id": "sip_browser_config_config_get",
+      "path": "/config",
+      "scope": "provisioning:read"
+    },
+    {
+      "classification": "operational",
+      "method": "GET",
+      "middleware_invocation": false,
+      "operation_id": "health_health_get",
+      "path": "/health",
+      "scope": null
+    },
+    {
+      "classification": "operational",
+      "method": "GET",
+      "middleware_invocation": false,
+      "operation_id": "ready_ready_get",
+      "path": "/ready",
+      "scope": null
+    },
+    {
+      "classification": "effect",
+      "method": "POST",
+      "middleware_invocation": true,
+      "operation_id": "renew_sip_browser_session_renew_post",
+      "path": "/renew",
+      "scope": "identity:rotate"
+    },
+    {
+      "classification": "effect",
+      "method": "POST",
+      "middleware_invocation": true,
+      "operation_id": "revoke_sip_browser_session_revoke_post",
+      "path": "/revoke",
+      "scope": "identity:rotate"
+    },
+    {
+      "classification": "effect",
+      "method": "POST",
+      "middleware_invocation": true,
+      "operation_id": "create_sip_browser_session_session_post",
+      "path": "/session",
+      "scope": "provisioning:execute"
+    },
+    {
+      "classification": "effect",
+      "method": "POST",
+      "middleware_invocation": true,
+      "operation_id": "route_v1_identities__employee_id__reactivate_post",
+      "path": "/v1/identities/{employee_id}/reactivate",
+      "scope": "provisioning:execute"
+    },
+    {
+      "classification": "read",
+      "method": "GET",
+      "middleware_invocation": false,
+      "operation_id": "reconciliation_v1_identities__employee_id__reconciliation_get",
+      "path": "/v1/identities/{employee_id}/reconciliation",
+      "scope": "provisioning:read"
+    },
+    {
+      "classification": "effect",
+      "method": "POST",
+      "middleware_invocation": true,
+      "operation_id": "route_v1_identities__employee_id__rotate_post",
+      "path": "/v1/identities/{employee_id}/rotate",
+      "scope": "identity:rotate"
+    },
+    {
+      "classification": "effect",
+      "method": "POST",
+      "middleware_invocation": true,
+      "operation_id": "route_v1_identities__employee_id__suspend_post",
+      "path": "/v1/identities/{employee_id}/suspend",
+      "scope": "provisioning:execute"
+    },
+    {
+      "classification": "effect",
+      "method": "POST",
+      "middleware_invocation": true,
+      "operation_id": "route_v1_identities__employee_id__terminate_post",
+      "path": "/v1/identities/{employee_id}/terminate",
+      "scope": "provisioning:execute"
+    },
+    {
+      "classification": "read",
+      "method": "GET",
+      "middleware_invocation": false,
+      "operation_id": "get_request_v1_provisioning_requests__request_id__get",
+      "path": "/v1/provisioning/requests/{request_id}",
+      "scope": "provisioning:read"
+    },
+    {
+      "classification": "effect",
+      "method": "POST",
+      "middleware_invocation": true,
+      "operation_id": "cancel_request_v1_provisioning_requests__request_id__cancel_post",
+      "path": "/v1/provisioning/requests/{request_id}/cancel",
+      "scope": "provisioning:execute"
+    },
+    {
+      "classification": "effect",
+      "method": "POST",
+      "middleware_invocation": true,
+      "operation_id": "execute_request_v1_provisioning_requests__request_id__execute_post",
+      "path": "/v1/provisioning/requests/{request_id}/execute",
+      "scope": "provisioning:execute"
+    },
+    {
+      "classification": "effect",
+      "method": "POST",
+      "middleware_invocation": true,
+      "operation_id": "retry_request_v1_provisioning_requests__request_id__retry_post",
+      "path": "/v1/provisioning/requests/{request_id}/retry",
+      "scope": "provisioning:execute"
+    },
+    {
+      "classification": "effect",
+      "method": "POST",
+      "middleware_invocation": true,
+      "operation_id": "verify_request_v1_provisioning_requests__request_id__verify_post",
+      "path": "/v1/provisioning/requests/{request_id}/verify",
+      "scope": "provisioning:execute"
+    }
+  ],
+  "repository": "ingtrader21-spec/codestra-provisioning-service",
+  "schema": "codestra.provisioning.security-matrix.v1",
+  "summary": {
+    "effects": 11,
+    "middleware_invocation_required": 11,
+    "operational": 2,
+    "operations": 16,
+    "reads": 3
+  },
+  "tenant_model": "service-internal provisioning; authenticated service identity and request ownership"
+}
