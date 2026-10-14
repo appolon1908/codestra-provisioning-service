@@ -63,17 +63,48 @@ class SipBrowserSessionManager:
         vicidial = commands["vicidial"].payload
         sip = commands["sip"].payload
         keycloak = commands["keycloak"].payload
+        vicidial_user_id, vicidial_campaigns = self._vicidial_identity(vicidial)
         if (
-            vicidial.get("username") != request.vicidial_username
+            vicidial_user_id != request.vicidial_username
             or int(sip.get("extension", 0)) != request.endpoint
             or keycloak.get("attributes", {}).get("role_template") != request.role
             or request.campaign
-            not in set(vicidial.get("campaigns", []))
+            not in vicidial_campaigns
             or request.endpoint != self.endpoint
             or request.campaign != self.campaign
         ):
             raise SipBrowserSessionError("identity_authorization_mismatch")
         return commands["sip"]
+
+    @staticmethod
+    def _vicidial_identity(payload: dict) -> tuple[str, set[str]]:
+        """Read the canonical identity, with strict legacy-record compatibility."""
+        agent = payload.get("agent")
+        has_legacy = "username" in payload or "campaigns" in payload
+
+        def identity(user_id, campaigns):
+            if not isinstance(user_id, str) or not user_id:
+                raise SipBrowserSessionError("identity_authorization_mismatch")
+            if (
+                not isinstance(campaigns, list)
+                or not campaigns
+                or any(not isinstance(item, str) or not item for item in campaigns)
+            ):
+                raise SipBrowserSessionError("identity_authorization_mismatch")
+            return user_id, set(campaigns)
+
+        if agent is not None:
+            if not isinstance(agent, dict):
+                raise SipBrowserSessionError("identity_authorization_mismatch")
+            canonical = identity(agent.get("user_id"), agent.get("campaigns"))
+            if has_legacy:
+                legacy = identity(payload.get("username"), payload.get("campaigns"))
+                if canonical != legacy:
+                    raise SipBrowserSessionError("identity_authorization_mismatch")
+            return canonical
+        if has_legacy:
+            return identity(payload.get("username"), payload.get("campaigns"))
+        raise SipBrowserSessionError("identity_authorization_mismatch")
 
     async def _rotate(self, original, binding: str, include_temporary: bool):
         command = original.model_copy(

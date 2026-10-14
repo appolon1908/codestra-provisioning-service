@@ -1,7 +1,11 @@
+import hashlib
+import hmac
+import json
 import time
 import uuid
 from dataclasses import replace
 from inspect import getclosurevars
+from pathlib import Path
 from types import SimpleNamespace
 
 import jwt
@@ -41,6 +45,9 @@ def material(tmp_path):
     placeholder = tmp_path / "placeholder"
     placeholder.write_text("configured")
     placeholder.chmod(0o600)
+    middleware_invocation_secret_file = tmp_path / "middleware_invocation_hmac_secret"
+    middleware_invocation_secret_file.write_text("test-middleware-invocation-secret")
+    middleware_invocation_secret_file.chmod(0o600)
     configured = Settings(
         environment="staging",
         state_database_path=str(tmp_path / "state.db"),
@@ -66,6 +73,7 @@ def material(tmp_path):
             {"identity:rotate", "provisioning:execute", "provisioning:read"}
         ),
         jwt_max_token_ttl_seconds=300,
+        middleware_invocation_hmac_file=str(middleware_invocation_secret_file),
     )
     repository = StateRepository(configured.state_database_path)
     adapter = FakeAdapter()
@@ -75,6 +83,18 @@ def material(tmp_path):
         {TargetSystem.ODOO.value: adapter},
     )
     return private, configured, app, adapter
+
+
+def middleware_invocation_headers(settings: Settings, body: bytes) -> dict[str, str]:
+    secret = Path(settings.middleware_invocation_hmac_file).read_text().strip()
+    timestamp = str(int(time.time()))
+    signature = hmac.new(
+        secret.encode(), timestamp.encode() + b"." + body, hashlib.sha256
+    ).hexdigest()
+    return {
+        "X-Middleware-Timestamp": timestamp,
+        "X-Middleware-Signature": f"sha256={signature}",
+    }
 
 
 def token(private, settings, **changes):
@@ -116,18 +136,27 @@ def test_strict_jwt_scope_replay_and_private_tls(tmp_path):
             settings,
             nbf=None,
         )
+        body_bytes = json.dumps(request.model_dump(mode="json")).encode()
         response = client.post(
             url,
-            json=request.model_dump(mode="json"),
-            headers={"Authorization": f"Bearer {valid}"},
+            content=body_bytes,
+            headers={
+                "Authorization": f"Bearer {valid}",
+                "Content-Type": "application/json",
+                **middleware_invocation_headers(settings, body_bytes),
+            },
         )
         assert response.status_code == 200
         assert response.json()["state"] == "completed"
         assert len(adapter.calls) == 1
         replay = client.post(
             url,
-            json=request.model_dump(mode="json"),
-            headers={"Authorization": f"Bearer {valid}"},
+            content=body_bytes,
+            headers={
+                "Authorization": f"Bearer {valid}",
+                "Content-Type": "application/json",
+                **middleware_invocation_headers(settings, body_bytes),
+            },
         )
         assert replay.status_code == 409
 
@@ -200,17 +229,26 @@ def test_maximum_300_second_token_and_replay(tmp_path):
     url = f"/v1/provisioning/requests/{request.request_id}/execute"
     now = int(time.time())
     candidate = token(private, settings, iat=now, exp=now + 300)
+    body_bytes = json.dumps(request.model_dump(mode="json")).encode()
     with TestClient(app, base_url="https://provisioning-service") as client:
         first = client.post(
             url,
-            json=request.model_dump(mode="json"),
-            headers={"Authorization": f"Bearer {candidate}"},
+            content=body_bytes,
+            headers={
+                "Authorization": f"Bearer {candidate}",
+                "Content-Type": "application/json",
+                **middleware_invocation_headers(settings, body_bytes),
+            },
         )
         assert first.status_code == 200
         replay = client.post(
             url,
-            json=request.model_dump(mode="json"),
-            headers={"Authorization": f"Bearer {candidate}"},
+            content=body_bytes,
+            headers={
+                "Authorization": f"Bearer {candidate}",
+                "Content-Type": "application/json",
+                **middleware_invocation_headers(settings, body_bytes),
+            },
         )
         assert replay.status_code == 409
 
@@ -391,10 +429,133 @@ def test_authoritative_numeric_odoo_request_id_is_accepted(tmp_path):
             ],
         }
     )
+    body_bytes = json.dumps(request.model_dump(mode="json")).encode()
     with TestClient(app, base_url="https://provisioning-service") as client:
         response = client.post(
             "/v1/provisioning/requests/87/execute",
-            json=request.model_dump(mode="json"),
-            headers={"Authorization": f"Bearer {token(private, settings)}"},
+            content=body_bytes,
+            headers={
+                "Authorization": f"Bearer {token(private, settings)}",
+                "Content-Type": "application/json",
+                **middleware_invocation_headers(settings, body_bytes),
+            },
         )
     assert response.status_code == 200
+
+
+def test_execute_request_requires_middleware_invocation_even_with_valid_scope(tmp_path):
+    """A caller holding a perfectly valid, correctly-scoped service JWT must
+    still be rejected on mutating provisioning routes unless it also proves
+    the request was orchestrated by Middleware's saga (see
+    app.security.require_middleware_invocation). This is the mechanism that
+    keeps this service from being a second, independently-triggerable
+    provisioning authority."""
+    private, settings, app, adapter = material(tmp_path)
+    request = execution()
+    url = f"/v1/provisioning/requests/{request.request_id}/execute"
+    body_bytes = json.dumps(request.model_dump(mode="json")).encode()
+    with TestClient(app, base_url="https://provisioning-service") as client:
+        no_attestation = client.post(
+            url,
+            content=body_bytes,
+            headers={
+                "Authorization": f"Bearer {token(private, settings)}",
+                "Content-Type": "application/json",
+            },
+        )
+        assert no_attestation.status_code == 401
+        assert no_attestation.json()["detail"] == "middleware_invocation_missing"
+        assert adapter.calls == []
+
+        tampered_body = json.dumps(
+            {**request.model_dump(mode="json"), "employee_id": "someone-else"}
+        ).encode()
+        forged_signature = client.post(
+            url,
+            content=tampered_body,
+            headers={
+                "Authorization": f"Bearer {token(private, settings)}",
+                "Content-Type": "application/json",
+                **middleware_invocation_headers(settings, body_bytes),
+            },
+        )
+        assert forged_signature.status_code == 401
+        assert forged_signature.json()["detail"] == "middleware_invocation_signature_invalid"
+        assert adapter.calls == []
+
+        legitimate = client.post(
+            url,
+            content=body_bytes,
+            headers={
+                "Authorization": f"Bearer {token(private, settings)}",
+                "Content-Type": "application/json",
+                **middleware_invocation_headers(settings, body_bytes),
+            },
+        )
+        assert legitimate.status_code == 200
+        assert len(adapter.calls) == 1
+
+
+def test_middleware_invocation_gate_closed_fails_closed(tmp_path, monkeypatch):
+    private, settings, app, adapter = material(tmp_path)
+    request = execution()
+    url = f"/v1/provisioning/requests/{request.request_id}/execute"
+    valid_scope_token = token(private, settings)
+    body_bytes = json.dumps(request.model_dump(mode="json")).encode()
+    monkeypatch.delenv("MIDDLEWARE_INVOCATION_REQUIRED_GATE", raising=False)
+    with TestClient(app, base_url="https://provisioning-service") as client:
+        response = client.post(
+            url,
+            content=body_bytes,
+            headers={
+                "Authorization": f"Bearer {valid_scope_token}",
+                "Content-Type": "application/json",
+                **middleware_invocation_headers(settings, body_bytes),
+            },
+        )
+        assert response.status_code == 503
+        assert response.json()["detail"] == "middleware_invocation_gate_closed"
+        assert adapter.calls == []
+
+
+def test_lifecycle_and_sip_browser_mutating_routes_require_middleware_invocation(tmp_path):
+    """Every mutating route -- not just /execute -- must require the same
+    attestation. Lifecycle (suspend/reactivate/terminate/rotate) and SIP
+    browser session create/renew/revoke all mutate provisioning-adjacent
+    state and must not be independently callable."""
+    private, settings, app, _ = material(tmp_path)
+    with TestClient(app, base_url="https://provisioning-service") as client:
+        for method, path, payload in (
+            (
+                "post",
+                "/v1/identities/employee-1/suspend",
+                {
+                    "schema_version": "1.0",
+                    "request_id": "req-1",
+                    "correlation_id": "corr-00000001",
+                    "idempotency_key": "idem-0000000000000001",
+                    "employee_id": "employee-1",
+                    "target_system": "keycloak",
+                    "operation": "suspend",
+                    "timestamp": "2026-01-01T00:00:00+00:00",
+                    "payload": {},
+                },
+            ),
+            (
+                "post",
+                "/session",
+                {"employee_id": "employee-1", "extension": "6101", "campaign": "TEST_SYN"},
+            ),
+        ):
+            body_bytes = json.dumps(payload).encode()
+            response = getattr(client, method)(
+                path,
+                content=body_bytes,
+                headers={
+                    "Authorization": f"Bearer {token(private, settings)}",
+                    "Content-Type": "application/json",
+                },
+            )
+            assert response.status_code in (401, 422), (path, response.status_code, response.text)
+            if response.status_code == 401:
+                assert response.json()["detail"] == "middleware_invocation_missing"
