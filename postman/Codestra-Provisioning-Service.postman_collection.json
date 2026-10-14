@@ -1,0 +1,569 @@
+{
+  "info": {
+    "_postman_id": "codestra-provisioning-service-v1",
+    "description": "Generated from the committed FastAPI/OpenAPI contract. Effectful requests require a valid Keycloak token and Middleware invocation signature.",
+    "name": "Codestra Provisioning Service",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "GET /config",
+      "request": {
+        "description": "operationId=sip_browser_config_config_get | scope=provisioning:read | middleware_invocation=false",
+        "header": [
+          {
+            "key": "Authorization",
+            "type": "text",
+            "value": "Bearer {{access_token}}"
+          }
+        ],
+        "method": "GET",
+        "url": {
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [],
+          "raw": "{{base_url}}/config"
+        }
+      }
+    },
+    {
+      "name": "GET /health",
+      "request": {
+        "description": "operationId=health_health_get | scope=none | middleware_invocation=false",
+        "header": [],
+        "method": "GET",
+        "url": {
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [],
+          "raw": "{{base_url}}/health"
+        }
+      }
+    },
+    {
+      "name": "GET /ready",
+      "request": {
+        "description": "operationId=ready_ready_get | scope=none | middleware_invocation=false",
+        "header": [],
+        "method": "GET",
+        "url": {
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [],
+          "raw": "{{base_url}}/ready"
+        }
+      }
+    },
+    {
+      "name": "POST /renew",
+      "request": {
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "description": "operationId=renew_sip_browser_session_renew_post | scope=identity:rotate | middleware_invocation=true",
+        "header": [
+          {
+            "key": "Authorization",
+            "type": "text",
+            "value": "Bearer {{access_token}}"
+          },
+          {
+            "key": "X-Middleware-Timestamp",
+            "type": "text",
+            "value": "{{middleware_timestamp}}"
+          },
+          {
+            "key": "X-Middleware-Signature",
+            "type": "text",
+            "value": "{{middleware_signature}}"
+          },
+          {
+            "key": "Content-Type",
+            "type": "text",
+            "value": "application/json"
+          }
+        ],
+        "method": "POST",
+        "url": {
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [],
+          "raw": "{{base_url}}/renew"
+        }
+      }
+    },
+    {
+      "name": "POST /revoke",
+      "request": {
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "description": "operationId=revoke_sip_browser_session_revoke_post | scope=identity:rotate | middleware_invocation=true",
+        "header": [
+          {
+            "key": "Authorization",
+            "type": "text",
+            "value": "Bearer {{access_token}}"
+          },
+          {
+            "key": "X-Middleware-Timestamp",
+            "type": "text",
+            "value": "{{middleware_timestamp}}"
+          },
+          {
+            "key": "X-Middleware-Signature",
+            "type": "text",
+            "value": "{{middleware_signature}}"
+          },
+          {
+            "key": "Content-Type",
+            "type": "text",
+            "value": "application/json"
+          }
+        ],
+        "method": "POST",
+        "url": {
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [],
+          "raw": "{{base_url}}/revoke"
+        }
+      }
+    },
+    {
+      "name": "POST /session",
+      "request": {
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "description": "operationId=create_sip_browser_session_session_post | scope=provisioning:execute | middleware_invocation=true",
+        "header": [
+          {
+            "key": "Authorization",
+            "type": "text",
+            "value": "Bearer {{access_token}}"
+          },
+          {
+            "key": "X-Middleware-Timestamp",
+            "type": "text",
+            "value": "{{middleware_timestamp}}"
+          },
+          {
+            "key": "X-Middleware-Signature",
+            "type": "text",
+            "value": "{{middleware_signature}}"
+          },
+          {
+            "key": "Content-Type",
+            "type": "text",
+            "value": "application/json"
+          }
+        ],
+        "method": "POST",
+        "url": {
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [],
+          "raw": "{{base_url}}/session"
+        }
+      }
+    },
+    {
+      "name": "POST /v1/identities/{employee_id}/reactivate",
+      "request": {
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "description": "operationId=route_v1_identities__employee_id__reactivate_post | scope=provisioning:execute | middleware_invocation=true",
+        "header": [
+          {
+            "key": "Authorization",
+            "type": "text",
+            "value": "Bearer {{access_token}}"
+          },
+          {
+            "key": "X-Middleware-Timestamp",
+            "type": "text",
+            "value": "{{middleware_timestamp}}"
+          },
+          {
+            "key": "X-Middleware-Signature",
+            "type": "text",
+            "value": "{{middleware_signature}}"
+          },
+          {
+            "key": "Content-Type",
+            "type": "text",
+            "value": "application/json"
+          }
+        ],
+        "method": "POST",
+        "url": {
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [],
+          "raw": "{{base_url}}/v1/identities/{{employee_id}}/reactivate"
+        }
+      }
+    },
+    {
+      "name": "GET /v1/identities/{employee_id}/reconciliation",
+      "request": {
+        "description": "operationId=reconciliation_v1_identities__employee_id__reconciliation_get | scope=provisioning:read | middleware_invocation=false",
+        "header": [
+          {
+            "key": "Authorization",
+            "type": "text",
+            "value": "Bearer {{access_token}}"
+          }
+        ],
+        "method": "GET",
+        "url": {
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [],
+          "raw": "{{base_url}}/v1/identities/{{employee_id}}/reconciliation"
+        }
+      }
+    },
+    {
+      "name": "POST /v1/identities/{employee_id}/rotate",
+      "request": {
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "description": "operationId=route_v1_identities__employee_id__rotate_post | scope=identity:rotate | middleware_invocation=true",
+        "header": [
+          {
+            "key": "Authorization",
+            "type": "text",
+            "value": "Bearer {{access_token}}"
+          },
+          {
+            "key": "X-Middleware-Timestamp",
+            "type": "text",
+            "value": "{{middleware_timestamp}}"
+          },
+          {
+            "key": "X-Middleware-Signature",
+            "type": "text",
+            "value": "{{middleware_signature}}"
+          },
+          {
+            "key": "Content-Type",
+            "type": "text",
+            "value": "application/json"
+          }
+        ],
+        "method": "POST",
+        "url": {
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [],
+          "raw": "{{base_url}}/v1/identities/{{employee_id}}/rotate"
+        }
+      }
+    },
+    {
+      "name": "POST /v1/identities/{employee_id}/suspend",
+      "request": {
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "description": "operationId=route_v1_identities__employee_id__suspend_post | scope=provisioning:execute | middleware_invocation=true",
+        "header": [
+          {
+            "key": "Authorization",
+            "type": "text",
+            "value": "Bearer {{access_token}}"
+          },
+          {
+            "key": "X-Middleware-Timestamp",
+            "type": "text",
+            "value": "{{middleware_timestamp}}"
+          },
+          {
+            "key": "X-Middleware-Signature",
+            "type": "text",
+            "value": "{{middleware_signature}}"
+          },
+          {
+            "key": "Content-Type",
+            "type": "text",
+            "value": "application/json"
+          }
+        ],
+        "method": "POST",
+        "url": {
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [],
+          "raw": "{{base_url}}/v1/identities/{{employee_id}}/suspend"
+        }
+      }
+    },
+    {
+      "name": "POST /v1/identities/{employee_id}/terminate",
+      "request": {
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "description": "operationId=route_v1_identities__employee_id__terminate_post | scope=provisioning:execute | middleware_invocation=true",
+        "header": [
+          {
+            "key": "Authorization",
+            "type": "text",
+            "value": "Bearer {{access_token}}"
+          },
+          {
+            "key": "X-Middleware-Timestamp",
+            "type": "text",
+            "value": "{{middleware_timestamp}}"
+          },
+          {
+            "key": "X-Middleware-Signature",
+            "type": "text",
+            "value": "{{middleware_signature}}"
+          },
+          {
+            "key": "Content-Type",
+            "type": "text",
+            "value": "application/json"
+          }
+        ],
+        "method": "POST",
+        "url": {
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [],
+          "raw": "{{base_url}}/v1/identities/{{employee_id}}/terminate"
+        }
+      }
+    },
+    {
+      "name": "GET /v1/provisioning/requests/{request_id}",
+      "request": {
+        "description": "operationId=get_request_v1_provisioning_requests__request_id__get | scope=provisioning:read | middleware_invocation=false",
+        "header": [
+          {
+            "key": "Authorization",
+            "type": "text",
+            "value": "Bearer {{access_token}}"
+          }
+        ],
+        "method": "GET",
+        "url": {
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [],
+          "raw": "{{base_url}}/v1/provisioning/requests/{{request_id}}"
+        }
+      }
+    },
+    {
+      "name": "POST /v1/provisioning/requests/{request_id}/cancel",
+      "request": {
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "description": "operationId=cancel_request_v1_provisioning_requests__request_id__cancel_post | scope=provisioning:execute | middleware_invocation=true",
+        "header": [
+          {
+            "key": "Authorization",
+            "type": "text",
+            "value": "Bearer {{access_token}}"
+          },
+          {
+            "key": "X-Middleware-Timestamp",
+            "type": "text",
+            "value": "{{middleware_timestamp}}"
+          },
+          {
+            "key": "X-Middleware-Signature",
+            "type": "text",
+            "value": "{{middleware_signature}}"
+          },
+          {
+            "key": "Content-Type",
+            "type": "text",
+            "value": "application/json"
+          }
+        ],
+        "method": "POST",
+        "url": {
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [],
+          "raw": "{{base_url}}/v1/provisioning/requests/{{request_id}}/cancel"
+        }
+      }
+    },
+    {
+      "name": "POST /v1/provisioning/requests/{request_id}/execute",
+      "request": {
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "description": "operationId=execute_request_v1_provisioning_requests__request_id__execute_post | scope=provisioning:execute | middleware_invocation=true",
+        "header": [
+          {
+            "key": "Authorization",
+            "type": "text",
+            "value": "Bearer {{access_token}}"
+          },
+          {
+            "key": "X-Middleware-Timestamp",
+            "type": "text",
+            "value": "{{middleware_timestamp}}"
+          },
+          {
+            "key": "X-Middleware-Signature",
+            "type": "text",
+            "value": "{{middleware_signature}}"
+          },
+          {
+            "key": "Content-Type",
+            "type": "text",
+            "value": "application/json"
+          }
+        ],
+        "method": "POST",
+        "url": {
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [],
+          "raw": "{{base_url}}/v1/provisioning/requests/{{request_id}}/execute"
+        }
+      }
+    },
+    {
+      "name": "POST /v1/provisioning/requests/{request_id}/retry",
+      "request": {
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "description": "operationId=retry_request_v1_provisioning_requests__request_id__retry_post | scope=provisioning:execute | middleware_invocation=true",
+        "header": [
+          {
+            "key": "Authorization",
+            "type": "text",
+            "value": "Bearer {{access_token}}"
+          },
+          {
+            "key": "X-Middleware-Timestamp",
+            "type": "text",
+            "value": "{{middleware_timestamp}}"
+          },
+          {
+            "key": "X-Middleware-Signature",
+            "type": "text",
+            "value": "{{middleware_signature}}"
+          },
+          {
+            "key": "Content-Type",
+            "type": "text",
+            "value": "application/json"
+          }
+        ],
+        "method": "POST",
+        "url": {
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [],
+          "raw": "{{base_url}}/v1/provisioning/requests/{{request_id}}/retry"
+        }
+      }
+    },
+    {
+      "name": "POST /v1/provisioning/requests/{request_id}/verify",
+      "request": {
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "description": "operationId=verify_request_v1_provisioning_requests__request_id__verify_post | scope=provisioning:execute | middleware_invocation=true",
+        "header": [
+          {
+            "key": "Authorization",
+            "type": "text",
+            "value": "Bearer {{access_token}}"
+          },
+          {
+            "key": "X-Middleware-Timestamp",
+            "type": "text",
+            "value": "{{middleware_timestamp}}"
+          },
+          {
+            "key": "X-Middleware-Signature",
+            "type": "text",
+            "value": "{{middleware_signature}}"
+          },
+          {
+            "key": "Content-Type",
+            "type": "text",
+            "value": "application/json"
+          }
+        ],
+        "method": "POST",
+        "url": {
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [],
+          "raw": "{{base_url}}/v1/provisioning/requests/{{request_id}}/verify"
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://provisioning.internal"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "middleware_timestamp",
+      "value": ""
+    },
+    {
+      "key": "middleware_signature",
+      "value": ""
+    },
+    {
+      "key": "request_id",
+      "value": ""
+    },
+    {
+      "key": "employee_id",
+      "value": ""
+    }
+  ]
+}

@@ -1,0 +1,1642 @@
+{
+  "components": {
+    "schemas": {
+      "ActionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "correlation_id": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Correlation Id",
+            "type": "string"
+          },
+          "employee_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Employee Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 16,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "maxLength": 16,
+            "pattern": "^1\\.[0-9]+$",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "target_system": {
+            "$ref": "#/components/schemas/TargetSystem"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "title": "Timestamp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "correlation_id",
+          "idempotency_key",
+          "employee_id",
+          "target_system",
+          "operation",
+          "timestamp"
+        ],
+        "title": "ActionRequest",
+        "type": "object"
+      },
+      "ExecutionResult": {
+        "properties": {
+          "correlation_id": {
+            "title": "Correlation Id",
+            "type": "string"
+          },
+          "employee_id": {
+            "title": "Employee Id",
+            "type": "string"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "step_results": {
+            "items": {
+              "$ref": "#/components/schemas/StepResult"
+            },
+            "title": "Step Results",
+            "type": "array"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "employee_id",
+          "correlation_id",
+          "state",
+          "step_results"
+        ],
+        "title": "ExecutionResult",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Operation": {
+        "enum": [
+          "create_disabled",
+          "update",
+          "verify",
+          "activate",
+          "suspend",
+          "reactivate",
+          "terminate",
+          "rotate_credentials",
+          "reconcile",
+          "cancel"
+        ],
+        "title": "Operation",
+        "type": "string"
+      },
+      "ReconciliationResult": {
+        "properties": {
+          "employee_id": {
+            "title": "Employee Id",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "systems": {
+            "items": {
+              "$ref": "#/components/schemas/StepResult"
+            },
+            "title": "Systems",
+            "type": "array"
+          }
+        },
+        "required": [
+          "employee_id",
+          "state",
+          "systems"
+        ],
+        "title": "ReconciliationResult",
+        "type": "object"
+      },
+      "RequestEnvelope": {
+        "additionalProperties": false,
+        "properties": {
+          "correlation_id": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Correlation Id",
+            "type": "string"
+          },
+          "employee_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Employee Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 16,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "maxLength": 16,
+            "pattern": "^1\\.[0-9]+$",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "target_system": {
+            "$ref": "#/components/schemas/TargetSystem"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "title": "Timestamp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "correlation_id",
+          "idempotency_key",
+          "employee_id",
+          "target_system",
+          "operation",
+          "timestamp"
+        ],
+        "title": "RequestEnvelope",
+        "type": "object"
+      },
+      "RequestExecution": {
+        "additionalProperties": false,
+        "properties": {
+          "correlation_id": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Correlation Id",
+            "type": "string"
+          },
+          "employee_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Employee Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 16,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "maxLength": 16,
+            "pattern": "^1\\.[0-9]+$",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/StepCommand"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "title": "Steps",
+            "type": "array"
+          },
+          "target_system": {
+            "$ref": "#/components/schemas/TargetSystem"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "title": "Timestamp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "correlation_id",
+          "idempotency_key",
+          "employee_id",
+          "target_system",
+          "operation",
+          "timestamp",
+          "steps"
+        ],
+        "title": "RequestExecution",
+        "type": "object"
+      },
+      "SipBrowserSessionAction": {
+        "additionalProperties": false,
+        "properties": {
+          "browser_session_binding": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Browser Session Binding",
+            "type": "string"
+          },
+          "session_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "browser_session_binding"
+        ],
+        "title": "SipBrowserSessionAction",
+        "type": "object"
+      },
+      "SipBrowserSessionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "browser_session_binding": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Browser Session Binding",
+            "type": "string"
+          },
+          "campaign": {
+            "pattern": "^[A-Za-z0-9_-]{1,20}$",
+            "title": "Campaign",
+            "type": "string"
+          },
+          "employee_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Employee Id",
+            "type": "string"
+          },
+          "endpoint": {
+            "maximum": 6999.0,
+            "minimum": 6100.0,
+            "title": "Endpoint",
+            "type": "integer"
+          },
+          "keycloak_subject": {
+            "maxLength": 128,
+            "minLength": 16,
+            "title": "Keycloak Subject",
+            "type": "string"
+          },
+          "odoo_employee_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Odoo Employee Id",
+            "type": "string"
+          },
+          "role": {
+            "pattern": "^[A-Z_]{1,40}$",
+            "title": "Role",
+            "type": "string"
+          },
+          "vicidial_username": {
+            "pattern": "^[A-Za-z0-9_-]{1,20}$",
+            "title": "Vicidial Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "employee_id",
+          "keycloak_subject",
+          "odoo_employee_id",
+          "vicidial_username",
+          "endpoint",
+          "campaign",
+          "role",
+          "browser_session_binding"
+        ],
+        "title": "SipBrowserSessionRequest",
+        "type": "object"
+      },
+      "SipBrowserSessionResponse": {
+        "properties": {
+          "approved_turn_url": {
+            "title": "Approved Turn Url",
+            "type": "string"
+          },
+          "approved_wss_url": {
+            "title": "Approved Wss Url",
+            "type": "string"
+          },
+          "browser_session_binding": {
+            "title": "Browser Session Binding",
+            "type": "string"
+          },
+          "campaign": {
+            "title": "Campaign",
+            "type": "string"
+          },
+          "employee_identity": {
+            "title": "Employee Identity",
+            "type": "string"
+          },
+          "endpoint": {
+            "title": "Endpoint",
+            "type": "integer"
+          },
+          "expiration": {
+            "format": "date-time",
+            "title": "Expiration",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "sip_uri": {
+            "title": "Sip Uri",
+            "type": "string"
+          },
+          "temporary_sip_authorization_username": {
+            "title": "Temporary Sip Authorization Username",
+            "type": "string"
+          },
+          "temporary_sip_credential": {
+            "title": "Temporary Sip Credential",
+            "type": "string"
+          },
+          "temporary_turn_credential": {
+            "title": "Temporary Turn Credential",
+            "type": "string"
+          },
+          "temporary_turn_username": {
+            "title": "Temporary Turn Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "temporary_sip_authorization_username",
+          "temporary_sip_credential",
+          "endpoint",
+          "sip_uri",
+          "approved_wss_url",
+          "temporary_turn_username",
+          "temporary_turn_credential",
+          "approved_turn_url",
+          "expiration",
+          "campaign",
+          "role",
+          "employee_identity",
+          "browser_session_binding"
+        ],
+        "title": "SipBrowserSessionResponse",
+        "type": "object"
+      },
+      "StepCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "correlation_id": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Correlation Id",
+            "type": "string"
+          },
+          "employee_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Employee Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 128,
+            "minLength": 16,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "mandatory": {
+            "default": true,
+            "title": "Mandatory",
+            "type": "boolean"
+          },
+          "max_attempts": {
+            "default": 3,
+            "maximum": 8.0,
+            "minimum": 1.0,
+            "title": "Max Attempts",
+            "type": "integer"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "maxLength": 16,
+            "pattern": "^1\\.[0-9]+$",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sequence": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Sequence",
+            "type": "integer"
+          },
+          "step_id": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Step Id",
+            "type": "string"
+          },
+          "target_system": {
+            "$ref": "#/components/schemas/TargetSystem"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "title": "Timestamp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "request_id",
+          "correlation_id",
+          "idempotency_key",
+          "employee_id",
+          "target_system",
+          "operation",
+          "timestamp",
+          "step_id",
+          "sequence"
+        ],
+        "title": "StepCommand",
+        "type": "object"
+      },
+      "StepResult": {
+        "properties": {
+          "attempt_count": {
+            "title": "Attempt Count",
+            "type": "integer"
+          },
+          "credential_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential Reference"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "evidence_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Hash"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Id"
+          },
+          "external_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Reference"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "retry_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry At"
+          },
+          "state": {
+            "$ref": "#/components/schemas/StepState"
+          },
+          "step_id": {
+            "title": "Step Id",
+            "type": "string"
+          },
+          "target_system": {
+            "$ref": "#/components/schemas/TargetSystem"
+          }
+        },
+        "required": [
+          "step_id",
+          "target_system",
+          "operation",
+          "state",
+          "attempt_count"
+        ],
+        "title": "StepResult",
+        "type": "object"
+      },
+      "StepState": {
+        "enum": [
+          "pending",
+          "running",
+          "retry_wait",
+          "succeeded",
+          "verified",
+          "failed",
+          "dead_letter",
+          "compensated"
+        ],
+        "title": "StepState",
+        "type": "string"
+      },
+      "TargetSystem": {
+        "enum": [
+          "odoo",
+          "keycloak",
+          "vicidial",
+          "sip",
+          "agent_desktop",
+          "email_provider",
+          "n8n_event",
+          "secret_storage",
+          "verification",
+          "reconciliation"
+        ],
+        "title": "TargetSystem",
+        "type": "string"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Codestra Provisioning Service",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/config": {
+      "get": {
+        "operationId": "sip_browser_config_config_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "browser_session_binding",
+            "required": true,
+            "schema": {
+              "title": "Browser Session Binding",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sip Browser Config"
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/ready": {
+      "get": {
+        "operationId": "ready_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Ready"
+      }
+    },
+    "/renew": {
+      "post": {
+        "operationId": "renew_sip_browser_session_renew_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SipBrowserSessionAction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SipBrowserSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Renew Sip Browser Session"
+      }
+    },
+    "/revoke": {
+      "post": {
+        "operationId": "revoke_sip_browser_session_revoke_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SipBrowserSessionAction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Sip Browser Session"
+      }
+    },
+    "/session": {
+      "post": {
+        "operationId": "create_sip_browser_session_session_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SipBrowserSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SipBrowserSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Sip Browser Session"
+      }
+    },
+    "/v1/identities/{employee_id}/reactivate": {
+      "post": {
+        "operationId": "route_v1_identities__employee_id__reactivate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "employee_id",
+            "required": true,
+            "schema": {
+              "title": "Employee Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestExecution"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Route"
+      }
+    },
+    "/v1/identities/{employee_id}/reconciliation": {
+      "get": {
+        "operationId": "reconciliation_v1_identities__employee_id__reconciliation_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "employee_id",
+            "required": true,
+            "schema": {
+              "title": "Employee Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReconciliationResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reconciliation"
+      }
+    },
+    "/v1/identities/{employee_id}/rotate": {
+      "post": {
+        "operationId": "route_v1_identities__employee_id__rotate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "employee_id",
+            "required": true,
+            "schema": {
+              "title": "Employee Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestExecution"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Route"
+      }
+    },
+    "/v1/identities/{employee_id}/suspend": {
+      "post": {
+        "operationId": "route_v1_identities__employee_id__suspend_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "employee_id",
+            "required": true,
+            "schema": {
+              "title": "Employee Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestExecution"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Route"
+      }
+    },
+    "/v1/identities/{employee_id}/terminate": {
+      "post": {
+        "operationId": "route_v1_identities__employee_id__terminate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "employee_id",
+            "required": true,
+            "schema": {
+              "title": "Employee Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestExecution"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Route"
+      }
+    },
+    "/v1/provisioning/requests/{request_id}": {
+      "get": {
+        "operationId": "get_request_v1_provisioning_requests__request_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestEnvelope"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Request"
+      }
+    },
+    "/v1/provisioning/requests/{request_id}/cancel": {
+      "post": {
+        "operationId": "cancel_request_v1_provisioning_requests__request_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Request"
+      }
+    },
+    "/v1/provisioning/requests/{request_id}/execute": {
+      "post": {
+        "operationId": "execute_request_v1_provisioning_requests__request_id__execute_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestExecution"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Execute Request"
+      }
+    },
+    "/v1/provisioning/requests/{request_id}/retry": {
+      "post": {
+        "operationId": "retry_request_v1_provisioning_requests__request_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Request"
+      }
+    },
+    "/v1/provisioning/requests/{request_id}/verify": {
+      "post": {
+        "operationId": "verify_request_v1_provisioning_requests__request_id__verify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Request"
+      }
+    }
+  },
+  "x-codestra-integration": {
+    "canonical_command_authority": "Middleware /platform/v1",
+    "metrics_public": false,
+    "middleware_runtime": "middleware-integration-api:8095",
+    "production_effects_default": false,
+    "service_role": "provider/provisioning execution service"
+  }
+}
