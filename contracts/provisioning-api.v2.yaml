@@ -1,0 +1,53 @@
+openapi: 3.1.0
+info:
+  title: Codestra Provisioning Service API
+  version: 2.0.0
+servers:
+  - url: https://provisioning.internal.invalid
+security:
+  - oauth2: [provisioning.request]
+paths:
+  /v2/provisioning/requests:
+    post:
+      operationId: createProvisioningRequest
+      responses: {'202': {description: Durable request accepted}, '409': {description: Idempotency conflict}}
+  /v2/provisioning/requests/{request_id}:
+    get:
+      operationId: getProvisioningRequest
+      parameters: [{name: request_id, in: path, required: true, schema: {type: string, format: uuid}}]
+      responses: {'200': {description: Current request and read-back state}}
+  /v2/provisioning/requests/{request_id}/cancel:
+    post:
+      operationId: cancelProvisioningRequest
+      parameters: [{name: request_id, in: path, required: true, schema: {type: string, format: uuid}}]
+      responses: {'202': {description: Cancellation evaluated}}
+  /v2/provisioning/requests/{request_id}/reconcile:
+    post:
+      operationId: reconcileProvisioningRequest
+      parameters: [{name: request_id, in: path, required: true, schema: {type: string, format: uuid}}]
+      responses: {'202': {description: Read-back reconciliation scheduled}}
+  /v2/provisioning/requests/{request_id}/repair-plan:
+    post:
+      operationId: createRepairPlan
+      parameters: [{name: request_id, in: path, required: true, schema: {type: string, format: uuid}}]
+      responses: {'202': {description: Non-destructive repair plan created}}
+  /v2/provisioning/targets:
+    get:
+      operationId: listProvisioningTargets
+      responses: {'200': {description: Allowlisted target capabilities}}
+  /v2/provisioning/readiness:
+    get:
+      operationId: getProvisioningReadiness
+      responses: {'200': {description: Effective fail-closed readiness state}}
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.codestra.co/realms/codestra/protocol/openid-connect/token
+          scopes:
+            provisioning.request: Create allowlisted lifecycle requests
+            provisioning.read: Read request state
+            provisioning.reconcile: Request read-back reconciliation
+            provisioning.repair.request: Request an approved repair plan

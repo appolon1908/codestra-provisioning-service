@@ -1,0 +1,17 @@
+{
+  "schema_version": "2.0",
+  "PROVISIONING_WRITE": false,
+  "TENANT_PROVISIONING": false,
+  "AGENT_PROVISIONING": false,
+  "IDENTITY_WRITE": false,
+  "ODOO_WRITE": false,
+  "TELEPHONY_ADMIN_WRITE": false,
+  "EMAIL_ADMIN_WRITE": false,
+  "SMS_ADMIN_WRITE": false,
+  "SOCIAL_ACCOUNT_WRITE": false,
+  "CRAWLER_ADMIN_WRITE": false,
+  "BEYVRA_OPERATIONS_WRITE": false,
+  "DEPROVISIONING": false,
+  "REPAIR_EXECUTION": false,
+  "DEAD_LETTER_REPLAY": false
+}

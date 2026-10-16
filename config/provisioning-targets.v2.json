@@ -1,0 +1,15 @@
+{
+  "schema_version": "2.0",
+  "source_only": true,
+  "targets": [
+    {"id":"keycloak","adapter":"keycloak-provisioning-adapter","allowed_resources":["user","group_membership","role_projection","service_client_declaration"],"direct_n8n_access":false},
+    {"id":"odoo","adapter":"odoo-19-adapter","allowed_resources":["employee","user_projection","company_projection","campaign_assignment"],"direct_n8n_access":false},
+    {"id":"vicidial","adapter":"vicidial-restricted-adapter","allowed_resources":["agent","campaign_membership","extension_projection"],"direct_n8n_access":false},
+    {"id":"klyrow","adapter":"klyrow-email-adapter","allowed_resources":["workspace","mailbox","sender_projection","domain_projection"],"direct_n8n_access":false},
+    {"id":"telnexa","adapter":"telnexa-sms-adapter","allowed_resources":["account_projection","sender_projection"],"direct_n8n_access":false},
+    {"id":"postly","adapter":"postly-social-adapter","allowed_resources":["workspace_projection","account_authorization_state"],"direct_n8n_access":false},
+    {"id":"kyqra","adapter":"kyqra-crawler-adapter","allowed_resources":["tenant_policy","quota_projection"],"direct_n8n_access":false},
+    {"id":"beyvra","adapter":"beyvra-nonfinancial-adapter","allowed_resources":["onboarding_projection","support_projection"],"direct_n8n_access":false}
+  ],
+  "forbidden_payload_keys": ["password","otp","reset_token","access_token","refresh_token","id_token","client_secret","private_key","api_secret","provider_token","smtp_password","smpp_password"]
+}
