@@ -23,22 +23,86 @@ POSTMAN_PATH = ROOT / "postman" / "Codestra-Provisioning-Service.postman_collect
 METHODS = {"get", "post", "put", "patch", "delete"}
 
 SECURITY = {
-    ("GET", "/health"): {"scope": None, "middleware_invocation": False, "classification": "operational"},
-    ("GET", "/ready"): {"scope": None, "middleware_invocation": False, "classification": "operational"},
-    ("GET", "/config"): {"scope": "provisioning:read", "middleware_invocation": False, "classification": "read"},
-    ("POST", "/session"): {"scope": "provisioning:execute", "middleware_invocation": True, "classification": "effect"},
-    ("POST", "/renew"): {"scope": "identity:rotate", "middleware_invocation": True, "classification": "effect"},
-    ("POST", "/revoke"): {"scope": "identity:rotate", "middleware_invocation": True, "classification": "effect"},
-    ("GET", "/v1/provisioning/requests/{request_id}"): {"scope": "provisioning:read", "middleware_invocation": False, "classification": "read"},
-    ("POST", "/v1/provisioning/requests/{request_id}/execute"): {"scope": "provisioning:execute", "middleware_invocation": True, "classification": "effect"},
-    ("POST", "/v1/provisioning/requests/{request_id}/retry"): {"scope": "provisioning:execute", "middleware_invocation": True, "classification": "effect"},
-    ("POST", "/v1/provisioning/requests/{request_id}/verify"): {"scope": "provisioning:execute", "middleware_invocation": True, "classification": "effect"},
-    ("POST", "/v1/provisioning/requests/{request_id}/cancel"): {"scope": "provisioning:execute", "middleware_invocation": True, "classification": "effect"},
-    ("POST", "/v1/identities/{employee_id}/suspend"): {"scope": "provisioning:execute", "middleware_invocation": True, "classification": "effect"},
-    ("POST", "/v1/identities/{employee_id}/reactivate"): {"scope": "provisioning:execute", "middleware_invocation": True, "classification": "effect"},
-    ("POST", "/v1/identities/{employee_id}/terminate"): {"scope": "provisioning:execute", "middleware_invocation": True, "classification": "effect"},
-    ("POST", "/v1/identities/{employee_id}/rotate"): {"scope": "identity:rotate", "middleware_invocation": True, "classification": "effect"},
-    ("GET", "/v1/identities/{employee_id}/reconciliation"): {"scope": "provisioning:read", "middleware_invocation": False, "classification": "read"},
+    ("GET", "/health"): {
+        "scope": None,
+        "middleware_invocation": False,
+        "classification": "operational",
+    },
+    ("GET", "/ready"): {
+        "scope": None,
+        "middleware_invocation": False,
+        "classification": "operational",
+    },
+    ("GET", "/config"): {
+        "scope": "provisioning:read",
+        "middleware_invocation": False,
+        "classification": "read",
+    },
+    ("POST", "/session"): {
+        "scope": "provisioning:execute",
+        "middleware_invocation": True,
+        "classification": "effect",
+    },
+    ("POST", "/renew"): {
+        "scope": "identity:rotate",
+        "middleware_invocation": True,
+        "classification": "effect",
+    },
+    ("POST", "/revoke"): {
+        "scope": "identity:rotate",
+        "middleware_invocation": True,
+        "classification": "effect",
+    },
+    ("GET", "/v1/provisioning/requests/{request_id}"): {
+        "scope": "provisioning:read",
+        "middleware_invocation": False,
+        "classification": "read",
+    },
+    ("POST", "/v1/provisioning/requests/{request_id}/execute"): {
+        "scope": "provisioning:execute",
+        "middleware_invocation": True,
+        "classification": "effect",
+    },
+    ("POST", "/v1/provisioning/requests/{request_id}/retry"): {
+        "scope": "provisioning:execute",
+        "middleware_invocation": True,
+        "classification": "effect",
+    },
+    ("POST", "/v1/provisioning/requests/{request_id}/verify"): {
+        "scope": "provisioning:execute",
+        "middleware_invocation": True,
+        "classification": "effect",
+    },
+    ("POST", "/v1/provisioning/requests/{request_id}/cancel"): {
+        "scope": "provisioning:execute",
+        "middleware_invocation": True,
+        "classification": "effect",
+    },
+    ("POST", "/v1/identities/{employee_id}/suspend"): {
+        "scope": "provisioning:execute",
+        "middleware_invocation": True,
+        "classification": "effect",
+    },
+    ("POST", "/v1/identities/{employee_id}/reactivate"): {
+        "scope": "provisioning:execute",
+        "middleware_invocation": True,
+        "classification": "effect",
+    },
+    ("POST", "/v1/identities/{employee_id}/terminate"): {
+        "scope": "provisioning:execute",
+        "middleware_invocation": True,
+        "classification": "effect",
+    },
+    ("POST", "/v1/identities/{employee_id}/rotate"): {
+        "scope": "identity:rotate",
+        "middleware_invocation": True,
+        "classification": "effect",
+    },
+    ("GET", "/v1/identities/{employee_id}/reconciliation"): {
+        "scope": "provisioning:read",
+        "middleware_invocation": False,
+        "classification": "read",
+    },
 }
 
 
@@ -109,10 +173,12 @@ def build_security_matrix(openapi: dict[str, Any]) -> dict[str, Any]:
     rows = operations(openapi)
     return {
         "schema": "codestra.provisioning.security-matrix.v1",
-        "repository": "ingtrader21-spec/codestra-provisioning-service",
+        "repository": "appolon1908/codestra-provisioning-service",
         "identity_authority": "Keycloak",
         "middleware_command_authority": "Middleware /platform/v1",
-        "tenant_model": "service-internal provisioning; authenticated service identity and request ownership",
+        "tenant_model": (
+            "service-internal provisioning; authenticated service identity and request ownership"
+        ),
         "metrics": {"path": "/metrics", "included_in_openapi": False, "public": False},
         "operations": rows,
         "summary": {
@@ -151,8 +217,16 @@ def build_postman(openapi: dict[str, Any], matrix: dict[str, Any]) -> dict[str, 
             if row["middleware_invocation"]:
                 headers.extend(
                     [
-                        {"key": "X-Middleware-Timestamp", "value": "{{middleware_timestamp}}", "type": "text"},
-                        {"key": "X-Middleware-Signature", "value": "{{middleware_signature}}", "type": "text"},
+                        {
+                            "key": "X-Middleware-Timestamp",
+                            "value": "{{middleware_timestamp}}",
+                            "type": "text",
+                        },
+                        {
+                            "key": "X-Middleware-Signature",
+                            "value": "{{middleware_signature}}",
+                            "type": "text",
+                        },
                     ]
                 )
             request: dict[str, Any] = {
@@ -166,7 +240,9 @@ def build_postman(openapi: dict[str, Any], matrix: dict[str, Any]) -> dict[str, 
                 ),
             }
             if method.lower() in {"post", "put", "patch"}:
-                request["header"].append({"key": "Content-Type", "value": "application/json", "type": "text"})
+                request["header"].append(
+                    {"key": "Content-Type", "value": "application/json", "type": "text"}
+                )
                 request["body"] = {"mode": "raw", "raw": "{}"}
             items.append({"name": f"{method.upper()} {path}", "request": request})
     return {
@@ -174,7 +250,11 @@ def build_postman(openapi: dict[str, Any], matrix: dict[str, Any]) -> dict[str, 
             "name": "Codestra Provisioning Service",
             "_postman_id": "codestra-provisioning-service-v1",
             "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-            "description": "Generated from the committed FastAPI/OpenAPI contract. Effectful requests require a valid Keycloak token and Middleware invocation signature.",
+            "description": (
+                "Generated from the committed FastAPI/OpenAPI contract. "
+                "Effectful requests require a valid Keycloak token "
+                "and Middleware invocation signature."
+            ),
         },
         "variable": [
             {"key": "base_url", "value": "https://provisioning.internal"},

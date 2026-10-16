@@ -136,7 +136,7 @@
       "scope": "provisioning:execute"
     }
   ],
-  "repository": "ingtrader21-spec/codestra-provisioning-service",
+  "repository": "appolon1908/codestra-provisioning-service",
   "schema": "codestra.provisioning.security-matrix.v1",
   "summary": {
     "effects": 11,
