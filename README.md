@@ -56,7 +56,7 @@ credential file are added to `adapter_config.json`.
 
 ## Authority boundary: this service is not a second provisioning authority
 
-Per `appolon1908-hue/Infustruction-repo#124` (ADR), `appolon1908-hue/Middleware-`
+Per `appolon1908/Infustruction-repo#124` (ADR), `appolon1908/Middleware-`
 is the sole canonical public provisioning authority
 (`POST /platform/v1/agent-provisioning/requests`). This service is the private
 downstream execution layer Middleware's saga invokes -- it must not be

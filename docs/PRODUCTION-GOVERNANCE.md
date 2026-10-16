@@ -84,3 +84,23 @@ rollback, and load/soak require an exact maintenance window recorded on the
 change issue after signing, identity, PKI, secrets, backup/restore, monitoring,
 and rollback prechecks pass. Time zone: `America/Santo_Domingo`; proposed window
 is the next available 00:00–04:00.
+
+## Canonical ownership amendment — 2026-10-16
+
+The original `CHG-20260826-PROVISIONING-PRODUCTION-01` proposal, owner identity,
+and signing identity above remain historical records; its status remains
+**PROPOSED — NOT APPROVED**. Existing exact-commit approval requirements,
+independent review, protected release environment, and maintenance-window
+controls still apply.
+
+Active repository authority is now `appolon1908/codestra-provisioning-service`.
+Future canonical releases must be verified against
+`https://github.com/appolon1908/codestra-provisioning-service/.github/workflows/ci.yml@refs/heads/main`
+and the existing GitHub Actions OIDC issuer. The historical image
+`ghcr.io/appolon1908-hue/codestra-provisioning-service@sha256:83669077e8b0c45a19c13cf688d4093cd639dadbb02f2bb3c3389170821d70f5`
+has not been relabeled or adopted as a canonical release. Preflight's protected
+canonical image pin is empty, so activation fails closed until a real canonical
+release is accepted and its exact digest is reviewed into protected Git through
+the existing approval process. An environment candidate or CI parsing fixture
+cannot supply that authority. This amendment records source ownership and
+verification policy only; it records no release acceptance or live activation.

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "2.0.0",
-  "repository": "appolon1908-hue/codestra-provisioning-service",
+  "repository": "appolon1908/codestra-provisioning-service",
   "classification": "backend-api",
   "targetBranch": "codex/codestra-orbit-v2-codestra-provisioning-service",
   "adoptionMode": "contract-only",

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-canonical_image=ghcr.io/appolon1908-hue/codestra-provisioning-service@sha256:83669077e8b0c45a19c13cf688d4093cd639dadbb02f2bb3c3389170821d70f5
-requested_image=${PROVISIONING_IMAGE:-$canonical_image}
+# Protected Git must adopt an accepted canonical release before activation.
+canonical_image=''
+requested_image=${PROVISIONING_IMAGE:-}
 image=$canonical_image
 secret_dir=${PROVISIONING_SECRET_DIR:-/etc/codestra/secrets/provisioning-service-production}
 compose_file=${PROVISIONING_COMPOSE_FILE:-deploy/compose.production.yaml}
@@ -10,17 +11,24 @@ failures=0
 
 pass() { printf 'PASS|%s\n' "$1"; }
 fail() { printf 'FAIL|%s\n' "$1"; failures=$((failures + 1)); }
+reject() { fail "$1"; printf 'SUMMARY|failures=%d\n' "$failures"; exit 1; }
 
-case "$image" in
-  *@sha256:????????????????????????????????????????????????????????????????)
-    pass image_digest_pinned ;;
-  *) fail image_digest_pinned ;;
-esac
+canonical_reference() {
+  [[ "$1" =~ ^ghcr\.io/appolon1908/codestra-provisioning-service@sha256:[0-9a-f]{64}$ ]] &&
+    [[ "${1##*@sha256:}" =~ [1-9a-f] ]]
+}
+
+[ -n "$canonical_image" ] || reject canonical_release_adopted
+canonical_reference "$canonical_image" || reject canonical_image_digest_pinned
+pass canonical_release_adopted
+
+canonical_reference "$requested_image" || reject image_digest_pinned
+pass image_digest_pinned
 
 if [ "$requested_image" = "$canonical_image" ]; then
   pass image_authority_match
 else
-  fail image_authority_match
+  reject image_authority_match
 fi
 
 if docker compose -f "$compose_file" config --quiet &&
@@ -37,7 +45,7 @@ else
 fi
 
 if command -v cosign >/dev/null 2>&1 && cosign verify \
-  --certificate-identity 'https://github.com/appolon1908-hue/codestra-provisioning-service/.github/workflows/ci.yml@refs/heads/main' \
+  --certificate-identity 'https://github.com/appolon1908/codestra-provisioning-service/.github/workflows/ci.yml@refs/heads/main' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   "$image" >/dev/null 2>&1; then
   pass image_signature
