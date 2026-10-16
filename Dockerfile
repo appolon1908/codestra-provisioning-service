@@ -9,10 +9,18 @@ RUN python -m venv /opt/venv \
     && /opt/venv/bin/python -m pip install --no-cache-dir --requirement requirements.txt \
     && /opt/venv/bin/python -m pip uninstall --yes pip setuptools wheel
 
-FROM ${PYTHON_RUNTIME}
+FROM ${PYTHON_RUNTIME} AS runtime
+
+FROM ${PYTHON_DEV} AS runtime-updater
+USER root
+COPY --from=runtime / /runtime
+RUN apk --root /runtime --no-scripts add --upgrade py3-pip-wheel=26.2.1-r4
+
+FROM scratch
+COPY --from=runtime-updater /runtime /
 
 ARG VCS_REF=unreleased
-ARG SOURCE_URL=https://github.com/appolon1908-hue/codestra-provisioning-service
+ARG SOURCE_URL=https://github.com/appolon1908/codestra-provisioning-service
 ARG VERSION=unreleased
 LABEL org.opencontainers.image.revision=$VCS_REF \
       org.opencontainers.image.source=$SOURCE_URL \
@@ -22,7 +30,8 @@ LABEL org.opencontainers.image.revision=$VCS_REF \
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PATH=/opt/venv/bin:$PATH
+    SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
+    PATH=/opt/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
 
 WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
