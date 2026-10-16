@@ -32,6 +32,9 @@ jobs:
       - run: python -m compileall -q app tests scripts
       - run: pytest -q
       - name: Validate production Compose runtime mounts
+        env:
+          # Synthetic config-parsing fixture; never pulled or accepted as a release.
+          PROVISIONING_IMAGE: ghcr.io/appolon1908/codestra-provisioning-service@sha256:1111111111111111111111111111111111111111111111111111111111111111
         run: |
           docker compose -f deploy/compose.production.yaml config --format json |
             python -c 'import json,sys; c=json.load(sys.stdin); assert c["services"]["provisioning-service"]["tmpfs"] == ["/tmp:size=16m,mode=1777"]'

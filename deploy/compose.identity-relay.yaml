@@ -47,7 +47,7 @@ services:
     mem_limit: 64m
     cpus: 0.25
     labels:
-      org.opencontainers.image.source: https://github.com/appolon1908-hue/codestra-provisioning-service
+      org.opencontainers.image.source: https://github.com/appolon1908/codestra-provisioning-service
       codestra.service: provisioning-identity-relay
 
 networks:
