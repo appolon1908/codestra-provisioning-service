@@ -10,17 +10,20 @@ capabilities = json.loads(
     (ROOT / "config/integration-fabric-capabilities.v2.json").read_text()
 )
 
-assert len({target["id"] for target in targets["targets"]}) == len(
+if len({target["id"] for target in targets["targets"]}) != len(
     targets["targets"]
-)
-assert all(
+):
+    raise ValueError("provisioning target IDs must be unique")
+if not all(
     target["direct_n8n_access"] is False for target in targets["targets"]
-)
-assert all(
+):
+    raise ValueError("direct n8n access must be disabled for every target")
+if not all(
     value is False
     for key, value in capabilities.items()
     if key != "schema_version"
-)
+):
+    raise ValueError("integration fabric capabilities must be disabled")
 
 for required in (
     "password",
@@ -32,6 +35,7 @@ for required in (
     "private_key",
     "provider_token",
 ):
-    assert required in targets["forbidden_payload_keys"]
+    if required not in targets["forbidden_payload_keys"]:
+        raise ValueError(f"missing forbidden payload key: {required}")
 
 print("CODESTRA_PROVISIONING_FABRIC_V2=PASS")
