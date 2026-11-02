@@ -55,6 +55,17 @@ jobs:
             --build-arg SOURCE_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
             --build-arg VERSION="$GITHUB_SHA" \
             -t codestra/provisioning-service:"$GITHUB_SHA" .
+      - name: Prove final Python runtime imports and version without network
+        run: >-
+          docker run --rm --network none --read-only
+          --entrypoint /opt/venv/bin/python
+          codestra/provisioning-service:${{ github.sha }}
+          -c 'import sys, jwt, fastapi, pydantic, cryptography; import app.main; assert sys.version_info[:2] == (3, 15); assert jwt.__version__ == "2.15.1"; assert pydantic.__version__ == "2.13.4"'
+      - name: Test complete source suite on the pinned Python image without network
+        run: |
+          docker build --file Dockerfile.test --tag codestra/provisioning-compatibility:"$GITHUB_SHA" .
+          docker run --rm --network none --cap-drop ALL --security-opt no-new-privileges \
+            codestra/provisioning-compatibility:"$GITHUB_SHA"
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

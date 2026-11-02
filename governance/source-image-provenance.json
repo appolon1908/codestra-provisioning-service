@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "purpose": "source-only base image security remediation",
+  "registry": "cgr.dev/chainguard/python",
+  "upstream_source_label": "https://github.com/chainguard-images/images/tree/main/images/python",
+  "upstream_created_at": "2026-11-01T05:21:18Z",
+  "verification": "Downloaded index, linux-amd64 manifest, config and package database layer bytes verified against their SHA256 digests before committing.",
+  "images": [
+    {
+      "role": "builder",
+      "index_digest": "sha256:8a5780972067cfba4592b10e786a889807ed876c1100f89410fd0ed4e398992c",
+      "linux_amd64_manifest": "sha256:bb71676348d8ddfb29e5fcf3524343b9db85a5e315f8abfa801f005c977041d5",
+      "config_digest": "sha256:d1b05b06378a21e0f099744dceaa25d487eaadab0925244617b265e8e9d042c4",
+      "package_database_layer": "sha256:11f2e3a4189f18511b3eeded1f423d61b51df2747d28f3382e679a064d438c7d"
+    },
+    {
+      "role": "runtime",
+      "index_digest": "sha256:60e3c0d33ab77e50ace0850ccdf6eaec825ce89dad9b1ec2b0300a2070892b05",
+      "linux_amd64_manifest": "sha256:969461626c3dd297ffae0faf00d1050c13a259581839b34f169a0dc2b5953011",
+      "config_digest": "sha256:b8ae6e7e8606a57a99d72cd88f37461169ad1ca662e472c048deb73e865e3f45",
+      "package_database_layer": "sha256:ec8e5a9b16f9db3bc54c67c0badd31451689288ff6fe13ba6b35042187856a3a"
+    }
+  ],
+  "verified_packages": {
+    "python-3.15": "3.15.1_git20261024-r1",
+    "ca-certificates-bundle": "20261020-r0",
+    "py3-pip-wheel": "26.2.2-r2"
+  },
+  "compatibility_gate": "Existing Python3.12 full source suite remains required; the complete suite also runs in the immutable Python3.15 builder test image without network, and the final non-root runtime verifies imports and exact interpreter/dependency versions without network or persistent writes. Existing Gitleaks and unchanged Trivy HIGH/CRITICAL gate remain required.",
+  "production_activation_authorized": false
+}

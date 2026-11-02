@@ -1,5 +1,5 @@
-ARG PYTHON_DEV=cgr.dev/chainguard/python@sha256:4bf7e945777010672b8ccd5d2ae2c41c91ad6d3478878347c731ae536d506bef
-ARG PYTHON_RUNTIME=cgr.dev/chainguard/python@sha256:1f6779775c9f466890da563e411cb677045a6c20b6a65160eefad1deffb5012c
+ARG PYTHON_DEV=cgr.dev/chainguard/python@sha256:8a5780972067cfba4592b10e786a889807ed876c1100f89410fd0ed4e398992c
+ARG PYTHON_RUNTIME=cgr.dev/chainguard/python@sha256:60e3c0d33ab77e50ace0850ccdf6eaec825ce89dad9b1ec2b0300a2070892b05
 
 FROM ${PYTHON_DEV} AS builder
 USER root
@@ -18,7 +18,7 @@ LABEL org.opencontainers.image.revision=$VCS_REF \
       org.opencontainers.image.source=$SOURCE_URL \
       org.opencontainers.image.version=$VERSION \
       io.codestra.python.base.repository="cgr.dev/chainguard/python" \
-      io.codestra.python.base.digest="sha256:1f6779775c9f466890da563e411cb677045a6c20b6a65160eefad1deffb5012c"
+      io.codestra.python.base.digest="sha256:60e3c0d33ab77e50ace0850ccdf6eaec825ce89dad9b1ec2b0300a2070892b05"
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

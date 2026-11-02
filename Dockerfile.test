@@ -1,10 +1,13 @@
-FROM python:3.12.11-slim-bookworm
+FROM cgr.dev/chainguard/python@sha256:8a5780972067cfba4592b10e786a889807ed876c1100f89410fd0ed4e398992c
+USER root
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=/work
 WORKDIR /work
 COPY requirements-dev.txt requirements.txt /work/
-RUN python -m pip install --no-cache-dir --requirement /work/requirements-dev.txt
+RUN python -m venv /opt/test-venv \
+    && /opt/test-venv/bin/python -m pip install --no-cache-dir --requirement /work/requirements-dev.txt
 COPY app /work/app
 COPY scripts /work/scripts
 COPY tests /work/tests
 COPY pyproject.toml /work/pyproject.toml
-ENTRYPOINT ["pytest", "-q"]
+USER 10001:10001
+ENTRYPOINT ["/opt/test-venv/bin/python", "-m", "pytest", "-q"]
