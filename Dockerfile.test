@@ -8,6 +8,7 @@ RUN python -m venv /opt/test-venv \
 COPY app /work/app
 COPY scripts /work/scripts
 COPY tests /work/tests
+COPY deploy /work/deploy
 COPY pyproject.toml /work/pyproject.toml
 USER 10001:10001
 ENTRYPOINT ["/opt/test-venv/bin/python", "-m", "pytest", "-q"]
